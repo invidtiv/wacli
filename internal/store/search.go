@@ -45,7 +45,7 @@ func likeContains(s string) string {
 
 func (d *DB) searchLIKE(p SearchMessagesParams) ([]Message, error) {
 	query := `
-		SELECT m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
+		SELECT m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
 	WHERE (LOWER(m.text) LIKE LOWER(?) ESCAPE '\' OR LOWER(m.display_text) LIKE LOWER(?) ESCAPE '\' OR LOWER(m.media_caption) LIKE LOWER(?) ESCAPE '\' OR LOWER(m.filename) LIKE LOWER(?) ESCAPE '\' OR LOWER(COALESCE(m.chat_name,'')) LIKE LOWER(?) ESCAPE '\' OR LOWER(COALESCE(m.sender_name,'')) LIKE LOWER(?) ESCAPE '\' OR LOWER(COALESCE(c.name,'')) LIKE LOWER(?) ESCAPE '\')`
@@ -53,7 +53,7 @@ func (d *DB) searchLIKE(p SearchMessagesParams) ([]Message, error) {
 	needle := likeContains(p.Query)
 	args := []interface{}{needle, needle, needle, needle, needle, needle, needle}
 	query, args = applyMessageFilters(query, args, p)
-	query += " ORDER BY m.ts DESC LIMIT ?"
+	query += " ORDER BY m.ts DESC, m.rowid DESC LIMIT ?"
 	args = append(args, p.Limit)
 	return d.scanMessages(query, args...)
 }
@@ -78,7 +78,7 @@ func sanitizeFTSQuery(q string) string {
 
 func (d *DB) searchFTS(p SearchMessagesParams) ([]Message, error) {
 	query := `
-		SELECT m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''),
+		SELECT m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''),
 		       snippet(messages_fts, 0, '[', ']', '…', 12)
 		FROM messages_fts
 		JOIN messages m ON messages_fts.rowid = m.rowid
@@ -89,7 +89,7 @@ func (d *DB) searchFTS(p SearchMessagesParams) ([]Message, error) {
 	// as implicit AND (both words present, any order).
 	args := []interface{}{sanitizeFTSQuery(p.Query)}
 	query, args = applyMessageFilters(query, args, p)
-	query += " ORDER BY bm25(messages_fts) LIMIT ?"
+	query += " ORDER BY bm25(messages_fts), m.rowid DESC LIMIT ?"
 	args = append(args, p.Limit)
 	return d.scanMessages(query, args...)
 }

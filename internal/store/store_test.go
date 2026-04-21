@@ -186,6 +186,50 @@ func TestListMessagesFiltersAndOrdering(t *testing.T) {
 	}
 }
 
+func TestListMessagesStableSameTimestampOrder(t *testing.T) {
+	db := openTestDB(t)
+	chat := "same-ts@s.whatsapp.net"
+	ts := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+	if err := db.UpsertChat(chat, "dm", "Same TS", ts); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	for _, id := range []string{"m1", "m2", "m3"} {
+		if err := db.UpsertMessage(UpsertMessageParams{
+			ChatJID:   chat,
+			MsgID:     id,
+			SenderJID: chat,
+			Timestamp: ts,
+			Text:      id,
+		}); err != nil {
+			t.Fatalf("UpsertMessage %s: %v", id, err)
+		}
+	}
+
+	msgs, err := db.ListMessages(ListMessagesParams{ChatJID: chat, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListMessages desc: %v", err)
+	}
+	if got := messageIDs(msgs); got != "m3,m2,m1" {
+		t.Fatalf("desc order = %s", got)
+	}
+
+	msgs, err = db.ListMessages(ListMessagesParams{ChatJID: chat, Limit: 10, Asc: true})
+	if err != nil {
+		t.Fatalf("ListMessages asc: %v", err)
+	}
+	if got := messageIDs(msgs); got != "m1,m2,m3" {
+		t.Fatalf("asc order = %s", got)
+	}
+
+	ctx, err := db.MessageContext(chat, "m2", 1, 1)
+	if err != nil {
+		t.Fatalf("MessageContext: %v", err)
+	}
+	if got := messageIDs(ctx); got != "m1,m2,m3" {
+		t.Fatalf("context order = %s", got)
+	}
+}
+
 func messageIDs(msgs []Message) string {
 	out := make([]string, 0, len(msgs))
 	for _, msg := range msgs {

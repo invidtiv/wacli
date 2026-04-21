@@ -73,7 +73,7 @@ func (d *DB) ListMessages(p ListMessagesParams) ([]Message, error) {
 		p.Limit = 50
 	}
 	query := `
-		SELECT m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
+		SELECT m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
 		WHERE 1=1`
@@ -99,9 +99,9 @@ func (d *DB) ListMessages(p ListMessagesParams) ([]Message, error) {
 		args = append(args, boolToInt(*p.FromMe))
 	}
 	if p.Asc {
-		query += " ORDER BY m.ts ASC LIMIT ?"
+		query += " ORDER BY m.ts ASC, m.rowid ASC LIMIT ?"
 	} else {
-		query += " ORDER BY m.ts DESC LIMIT ?"
+		query += " ORDER BY m.ts DESC, m.rowid DESC LIMIT ?"
 	}
 	args = append(args, p.Limit)
 	return d.scanMessages(query, args...)
@@ -109,7 +109,7 @@ func (d *DB) ListMessages(p ListMessagesParams) ([]Message, error) {
 
 func (d *DB) GetMessage(chatJID, msgID string) (Message, error) {
 	row := d.sql.QueryRow(`
-		SELECT m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
+		SELECT m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
 		WHERE m.chat_jid = ? AND m.msg_id = ?
@@ -117,7 +117,7 @@ func (d *DB) GetMessage(chatJID, msgID string) (Message, error) {
 	var m Message
 	var ts int64
 	var fromMe int
-	if err := row.Scan(&m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &ts, &fromMe, &m.Text, &m.DisplayText, &m.MediaType, &m.Snippet); err != nil {
+	if err := row.Scan(&m.rowID, &m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &ts, &fromMe, &m.Text, &m.DisplayText, &m.MediaType, &m.Snippet); err != nil {
 		return Message{}, err
 	}
 	m.Timestamp = fromUnix(ts)
@@ -143,7 +143,7 @@ func (d *DB) GetOldestMessageInfo(chatJID string) (MessageInfo, error) {
 		SELECT m.chat_jid, m.msg_id, m.ts, m.from_me, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,'')
 		FROM messages m
 		WHERE m.chat_jid = ?
-		ORDER BY m.ts ASC
+		ORDER BY m.ts ASC, m.rowid ASC
 		LIMIT 1
 	`, chatJID)
 	var out MessageInfo
@@ -170,25 +170,25 @@ func (d *DB) MessageContext(chatJID, msgID string, before, after int) ([]Message
 	}
 
 	beforeRows, err := d.scanMessages(`
-		SELECT m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
+		SELECT m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
-		WHERE m.chat_jid = ? AND m.ts < ?
-		ORDER BY m.ts DESC
+		WHERE m.chat_jid = ? AND (m.ts < ? OR (m.ts = ? AND m.rowid < ?))
+		ORDER BY m.ts DESC, m.rowid DESC
 		LIMIT ?
-	`, chatJID, unix(target.Timestamp), before)
+	`, chatJID, unix(target.Timestamp), unix(target.Timestamp), target.rowID, before)
 	if err != nil {
 		return nil, err
 	}
 
 	afterRows, err := d.scanMessages(`
-		SELECT m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
+		SELECT m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), COALESCE(m.media_type,''), ''
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
-		WHERE m.chat_jid = ? AND m.ts > ?
-		ORDER BY m.ts ASC
+		WHERE m.chat_jid = ? AND (m.ts > ? OR (m.ts = ? AND m.rowid > ?))
+		ORDER BY m.ts ASC, m.rowid ASC
 		LIMIT ?
-	`, chatJID, unix(target.Timestamp), after)
+	`, chatJID, unix(target.Timestamp), unix(target.Timestamp), target.rowID, after)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (d *DB) scanMessages(query string, args ...interface{}) ([]Message, error) 
 		var m Message
 		var ts int64
 		var fromMe int
-		if err := rows.Scan(&m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &ts, &fromMe, &m.Text, &m.DisplayText, &m.MediaType, &m.Snippet); err != nil {
+		if err := rows.Scan(&m.rowID, &m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &ts, &fromMe, &m.Text, &m.DisplayText, &m.MediaType, &m.Snippet); err != nil {
 			return nil, err
 		}
 		m.Timestamp = fromUnix(ts)

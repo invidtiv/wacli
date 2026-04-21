@@ -56,6 +56,7 @@ type Message struct {
 	DisplayText string
 	MediaType   string
 	Snippet     string
+	rowID       int64
 }
 
 type MessageInfo struct {
