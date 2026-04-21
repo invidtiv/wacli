@@ -86,3 +86,25 @@ func TestGroupsUsesInjectedClockForUpdates(t *testing.T) {
 		t.Fatalf("UpdatedAt = %+v, want %s", gs, fixed)
 	}
 }
+
+func TestMarkGroupsMissingFrom(t *testing.T) {
+	db := openTestDB(t)
+
+	if err := db.UpsertGroup("active@g.us", "Active", "", time.Time{}); err != nil {
+		t.Fatalf("UpsertGroup active: %v", err)
+	}
+	if err := db.UpsertGroup("left@g.us", "Left", "", time.Time{}); err != nil {
+		t.Fatalf("UpsertGroup left: %v", err)
+	}
+
+	if err := db.MarkGroupsMissingFrom(map[string]bool{"active@g.us": true}, time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)); err != nil {
+		t.Fatalf("MarkGroupsMissingFrom: %v", err)
+	}
+	gs, err := db.ListGroups("", 10)
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if len(gs) != 1 || gs[0].JID != "active@g.us" {
+		t.Fatalf("expected only active group, got %+v", gs)
+	}
+}

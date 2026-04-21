@@ -33,6 +33,37 @@ func (d *DB) MarkGroupLeft(jid string, leftAt time.Time) error {
 	return err
 }
 
+func (d *DB) MarkGroupsMissingFrom(joined map[string]bool, leftAt time.Time) error {
+	if leftAt.IsZero() {
+		leftAt = nowUTC()
+	}
+	rows, err := d.sql.Query(`SELECT jid FROM groups WHERE left_at IS NULL`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var missing []string
+	for rows.Next() {
+		var jid string
+		if err := rows.Scan(&jid); err != nil {
+			return err
+		}
+		if !joined[jid] {
+			missing = append(missing, jid)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, jid := range missing {
+		if err := d.MarkGroupLeft(jid, leftAt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *DB) ReplaceGroupParticipants(groupJID string, participants []GroupParticipant) (err error) {
 	tx, err := d.sql.Begin()
 	if err != nil {

@@ -65,3 +65,33 @@ func TestRefreshGroupsStoresGroupsAndChats(t *testing.T) {
 		t.Fatalf("expected chat kind group, got %q", c.Kind)
 	}
 }
+
+func TestRefreshGroupsMarksMissingGroupsLeft(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	active := types.JID{User: "active", Server: types.GroupServer}
+	left := types.JID{User: "left", Server: types.GroupServer}
+	if err := a.db.UpsertGroup(active.String(), "Active", "", time.Time{}); err != nil {
+		t.Fatalf("UpsertGroup active: %v", err)
+	}
+	if err := a.db.UpsertGroup(left.String(), "Left", "", time.Time{}); err != nil {
+		t.Fatalf("UpsertGroup left: %v", err)
+	}
+	f.groups[active] = &types.GroupInfo{
+		JID:       active,
+		GroupName: types.GroupName{Name: "Active"},
+	}
+
+	if err := a.refreshGroups(context.Background()); err != nil {
+		t.Fatalf("refreshGroups: %v", err)
+	}
+	gs, err := a.db.ListGroups("", 10)
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if len(gs) != 1 || gs[0].JID != active.String() {
+		t.Fatalf("expected only active group, got %+v", gs)
+	}
+}

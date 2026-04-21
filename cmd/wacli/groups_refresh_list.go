@@ -38,12 +38,18 @@ func newGroupsRefreshCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			joined := map[string]bool{}
+			now := time.Now().UTC()
 			for _, g := range gs {
 				if g == nil {
 					continue
 				}
+				joined[g.JID.String()] = true
 				_ = persistGroupInfo(a.DB(), g)
-				_ = a.DB().UpsertChat(g.JID.String(), "group", g.GroupName.Name, time.Now())
+				_ = a.DB().UpsertChat(g.JID.String(), "group", g.GroupName.Name, now)
+			}
+			if err := a.DB().MarkGroupsMissingFrom(joined, now); err != nil {
+				return err
 			}
 
 			if flags.asJSON {
