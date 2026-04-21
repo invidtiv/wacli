@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.1 - Unreleased
+## 0.7.0 - Unreleased
 
 ### Security
 
@@ -25,6 +25,7 @@
 
 - CI: compile-test the Windows lock package to catch platform regressions. (#188 — thanks @dinakars777)
 - Dependencies: update Go modules including `whatsmeow`, `go-sqlite3`, `x/*`, and related runtime libs.
+- Version: bump CLI version string to `0.7.0`.
 
 ## 0.6.0 - 2026-04-14
 
