@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/steipete/wacli/internal/out"
@@ -49,13 +48,14 @@ func newContactsSearchCmd(flags *rootFlags) *cobra.Command {
 				return out.WriteJSON(os.Stdout, cs)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+			fullOutput := fullTableOutput(flags.fullOutput)
+			w := newTableWriter(os.Stdout)
 			fmt.Fprintln(w, "ALIAS\tNAME\tPHONE\tJID")
 			for _, c := range cs {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-					truncate(c.Alias, 18),
-					truncate(c.Name, 24),
-					truncate(c.Phone, 14),
+					tableCell(c.Alias, 18, fullOutput),
+					tableCell(c.Name, 24, fullOutput),
+					tableCell(c.Phone, 14, fullOutput),
 					c.JID,
 				)
 			}

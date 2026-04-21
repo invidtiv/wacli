@@ -50,10 +50,3 @@ func fullTableOutput(forceFull bool) bool {
 func fullTableOutputWithTTY(forceFull, tty bool) bool {
 	return forceFull || !tty
 }
-
-func truncateForDisplay(s string, max int, full bool) string {
-	if full {
-		return sanitize(s)
-	}
-	return truncate(s, max)
-}

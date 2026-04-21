@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -45,14 +44,15 @@ func newChatsListCmd(flags *rootFlags) *cobra.Command {
 				return out.WriteJSON(os.Stdout, chats)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+			fullOutput := fullTableOutput(flags.fullOutput)
+			w := newTableWriter(os.Stdout)
 			fmt.Fprintln(w, "KIND\tNAME\tJID\tLAST")
 			for _, c := range chats {
 				name := c.Name
 				if name == "" {
 					name = c.JID
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.Kind, truncate(name, 28), c.JID, c.LastMessageTS.Local().Format("2006-01-02 15:04:05"))
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.Kind, tableCell(name, 28, fullOutput), c.JID, c.LastMessageTS.Local().Format("2006-01-02 15:04:05"))
 			}
 			_ = w.Flush()
 			return nil

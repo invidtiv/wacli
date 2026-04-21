@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/steipete/wacli/internal/config"
@@ -111,7 +110,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 				return out.WriteJSON(os.Stdout, rep)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+			w := newTableWriter(os.Stdout)
 			fmt.Fprintf(w, "STORE\t%s\n", rep.StoreDir)
 			fmt.Fprintf(w, "LOCKED\t%v\n", rep.LockHeld)
 			if rep.LockHeld && rep.LockInfo != "" {

@@ -31,13 +31,13 @@ func TestTruncate(t *testing.T) {
 
 func TestTruncateForDisplay(t *testing.T) {
 	const longID = "3EB0B0E8A1B2C3D4E5F6A7B8C9D0"
-	if got := truncateForDisplay(longID, 14, true); got != longID {
+	if got := tableCell(longID, 14, true); got != longID {
 		t.Fatalf("force full = %q, want %q", got, longID)
 	}
 	if got := fullTableOutputWithTTY(false, false); !got {
 		t.Fatalf("non-TTY should request full output")
 	}
-	if got := truncateForDisplay(longID, 14, false); got != "3EB0B0E8A1B2C…" {
+	if got := tableCell(longID, 14, false); got != "3EB0B0E8A1B2C…" {
 		t.Fatalf("tty truncation = %q", got)
 	}
 }

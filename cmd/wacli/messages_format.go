@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/steipete/wacli/internal/store"
 )
 
 func writeMessagesList(dst io.Writer, msgs []store.Message, fullOutput bool) error {
-	w := tabwriter.NewWriter(dst, 2, 4, 2, ' ', 0)
+	w := newTableWriter(dst)
 	fmt.Fprintln(w, "TIME\tCHAT\tFROM\tID\tTEXT")
 	for _, m := range msgs {
 		chatLabel := m.ChatName
@@ -20,17 +19,17 @@ func writeMessagesList(dst io.Writer, msgs []store.Message, fullOutput bool) err
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			m.Timestamp.Local().Format("2006-01-02 15:04:05"),
-			truncate(chatLabel, 24),
-			truncate(messageFrom(m), 18),
-			truncateForDisplay(m.MsgID, 14, fullOutput),
-			truncate(messageText(m), 80),
+			tableCell(chatLabel, 24, fullOutput),
+			tableCell(messageFrom(m), 18, fullOutput),
+			tableCell(m.MsgID, 14, fullOutput),
+			tableCell(messageText(m), 80, fullOutput),
 		)
 	}
 	return w.Flush()
 }
 
 func writeMessagesSearch(dst io.Writer, msgs []store.Message, fullOutput bool) error {
-	w := tabwriter.NewWriter(dst, 2, 4, 2, ' ', 0)
+	w := newTableWriter(dst)
 	fmt.Fprintf(w, "TIME\tCHAT\tFROM\tID\tMATCH\n")
 	for _, m := range msgs {
 		chatLabel := m.ChatName
@@ -43,10 +42,10 @@ func writeMessagesSearch(dst io.Writer, msgs []store.Message, fullOutput bool) e
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			m.Timestamp.Local().Format("2006-01-02 15:04:05"),
-			truncate(chatLabel, 24),
-			truncate(messageFrom(m), 18),
-			truncateForDisplay(m.MsgID, 14, fullOutput),
-			truncate(match, 90),
+			tableCell(chatLabel, 24, fullOutput),
+			tableCell(messageFrom(m), 18, fullOutput),
+			tableCell(m.MsgID, 14, fullOutput),
+			tableCell(match, 90, fullOutput),
 		)
 	}
 	return w.Flush()
@@ -68,7 +67,7 @@ func writeMessageShow(dst io.Writer, m store.Message) error {
 }
 
 func writeMessageContext(dst io.Writer, msgs []store.Message, selectedID string, fullOutput bool) error {
-	w := tabwriter.NewWriter(dst, 2, 4, 2, ' ', 0)
+	w := newTableWriter(dst)
 	fmt.Fprintln(w, "TIME\tFROM\tID\tTEXT")
 	for _, m := range msgs {
 		line := messageContextLine(m)
@@ -77,9 +76,9 @@ func writeMessageContext(dst io.Writer, msgs []store.Message, selectedID string,
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			m.Timestamp.Local().Format("2006-01-02 15:04:05"),
-			truncate(messageFrom(m), 18),
-			truncateForDisplay(m.MsgID, 14, fullOutput),
-			truncate(line, 100),
+			tableCell(messageFrom(m), 18, fullOutput),
+			tableCell(m.MsgID, 14, fullOutput),
+			tableCell(line, 100, fullOutput),
 		)
 	}
 	return w.Flush()

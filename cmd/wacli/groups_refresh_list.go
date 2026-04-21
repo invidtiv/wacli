@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -78,14 +77,15 @@ func newGroupsListCmd(flags *rootFlags) *cobra.Command {
 				return out.WriteJSON(os.Stdout, gs)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+			fullOutput := fullTableOutput(flags.fullOutput)
+			w := newTableWriter(os.Stdout)
 			fmt.Fprintln(w, "NAME\tJID\tCREATED")
 			for _, g := range gs {
 				name := g.Name
 				if name == "" {
 					name = g.JID
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", truncate(name, 40), g.JID, g.CreatedAt.Local().Format("2006-01-02"))
+				fmt.Fprintf(w, "%s\t%s\t%s\n", tableCell(name, 40, fullOutput), g.JID, g.CreatedAt.Local().Format("2006-01-02"))
 			}
 			_ = w.Flush()
 			return nil
