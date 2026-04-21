@@ -27,9 +27,13 @@ func parseTime(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unsupported time format %q (use RFC3339 or YYYY-MM-DD)", s)
 }
 
-func truncate(s string, max int) string {
+func sanitize(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.TrimSpace(s)
+	return strings.TrimSpace(s)
+}
+
+func truncate(s string, max int) string {
+	s = sanitize(s)
 	if max <= 0 || len(s) <= max {
 		return s
 	}
@@ -37,4 +41,19 @@ func truncate(s string, max int) string {
 		return s[:max]
 	}
 	return s[:max-1] + "…"
+}
+
+func fullTableOutput(forceFull bool) bool {
+	return fullTableOutputWithTTY(forceFull, isTTY())
+}
+
+func fullTableOutputWithTTY(forceFull, tty bool) bool {
+	return forceFull || !tty
+}
+
+func truncateForDisplay(s string, max int, full bool) string {
+	if full {
+		return sanitize(s)
+	}
+	return truncate(s, max)
 }

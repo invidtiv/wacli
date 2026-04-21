@@ -84,6 +84,7 @@ This project is heavily inspired by (and learns from) the excellent `whatsapp-cl
 - `wacli auth`: interactive login (shows QR code), then immediately performs initial data sync.
 - `wacli sync`: non-interactive sync loop (never shows QR; errors if not authenticated).
 - Output is human-readable by default; pass `--json` for machine-readable output.
+- Pass `--full` to keep full IDs in table output; non-TTY output keeps full IDs automatically.
 
 ## Storage
 

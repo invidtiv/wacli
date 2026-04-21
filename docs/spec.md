@@ -134,6 +134,7 @@ Global flags:
 
 - `--store DIR` (default `~/.wacli`)
 - `--json` (default: human text)
+- `--full` (disable table truncation; non-TTY output keeps full IDs)
 - `--timeout DURATION` (non-sync commands; e.g. `5m`)
 - `--version` (prints version and exits)
 

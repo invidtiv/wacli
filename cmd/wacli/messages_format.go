@@ -10,7 +10,7 @@ import (
 	"github.com/steipete/wacli/internal/store"
 )
 
-func writeMessagesList(dst io.Writer, msgs []store.Message) error {
+func writeMessagesList(dst io.Writer, msgs []store.Message, fullOutput bool) error {
 	w := tabwriter.NewWriter(dst, 2, 4, 2, ' ', 0)
 	fmt.Fprintln(w, "TIME\tCHAT\tFROM\tID\tTEXT")
 	for _, m := range msgs {
@@ -22,14 +22,14 @@ func writeMessagesList(dst io.Writer, msgs []store.Message) error {
 			m.Timestamp.Local().Format("2006-01-02 15:04:05"),
 			truncate(chatLabel, 24),
 			truncate(messageFrom(m), 18),
-			truncate(m.MsgID, 14),
+			truncateForDisplay(m.MsgID, 14, fullOutput),
 			truncate(messageText(m), 80),
 		)
 	}
 	return w.Flush()
 }
 
-func writeMessagesSearch(dst io.Writer, msgs []store.Message) error {
+func writeMessagesSearch(dst io.Writer, msgs []store.Message, fullOutput bool) error {
 	w := tabwriter.NewWriter(dst, 2, 4, 2, ' ', 0)
 	fmt.Fprintf(w, "TIME\tCHAT\tFROM\tID\tMATCH\n")
 	for _, m := range msgs {
@@ -45,7 +45,7 @@ func writeMessagesSearch(dst io.Writer, msgs []store.Message) error {
 			m.Timestamp.Local().Format("2006-01-02 15:04:05"),
 			truncate(chatLabel, 24),
 			truncate(messageFrom(m), 18),
-			truncate(m.MsgID, 14),
+			truncateForDisplay(m.MsgID, 14, fullOutput),
 			truncate(match, 90),
 		)
 	}
@@ -67,7 +67,7 @@ func writeMessageShow(dst io.Writer, m store.Message) error {
 	return nil
 }
 
-func writeMessageContext(dst io.Writer, msgs []store.Message, selectedID string) error {
+func writeMessageContext(dst io.Writer, msgs []store.Message, selectedID string, fullOutput bool) error {
 	w := tabwriter.NewWriter(dst, 2, 4, 2, ' ', 0)
 	fmt.Fprintln(w, "TIME\tFROM\tID\tTEXT")
 	for _, m := range msgs {
@@ -78,7 +78,7 @@ func writeMessageContext(dst io.Writer, msgs []store.Message, selectedID string)
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			m.Timestamp.Local().Format("2006-01-02 15:04:05"),
 			truncate(messageFrom(m), 18),
-			truncate(m.MsgID, 14),
+			truncateForDisplay(m.MsgID, 14, fullOutput),
 			truncate(line, 100),
 		)
 	}

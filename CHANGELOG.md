@@ -2,6 +2,10 @@
 
 ## 0.7.0 - Unreleased
 
+### Added
+
+- CLI: add `--full` to disable table truncation; piped output now keeps full message IDs. (#13 — thanks @rickhallett)
+
 ### Security
 
 - Auth: reject `?` and `#` in whatsmeow session store paths to avoid SQLite URI parameter injection. (#180 — thanks @shaun0927)

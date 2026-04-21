@@ -76,7 +76,7 @@ func newMessagesListCmd(flags *rootFlags) *cobra.Command {
 				})
 			}
 
-			return writeMessagesList(os.Stdout, msgs)
+			return writeMessagesList(os.Stdout, msgs, fullTableOutput(flags.fullOutput))
 		},
 	}
 
@@ -146,7 +146,7 @@ func newMessagesSearchCmd(flags *rootFlags) *cobra.Command {
 				})
 			}
 
-			if err := writeMessagesSearch(os.Stdout, msgs); err != nil {
+			if err := writeMessagesSearch(os.Stdout, msgs, fullTableOutput(flags.fullOutput)); err != nil {
 				return err
 			}
 			if !a.DB().HasFTS() {
@@ -236,7 +236,7 @@ func newMessagesContextCmd(flags *rootFlags) *cobra.Command {
 				return out.WriteJSON(os.Stdout, msgs)
 			}
 
-			return writeMessageContext(os.Stdout, msgs, id)
+			return writeMessageContext(os.Stdout, msgs, id, fullTableOutput(flags.fullOutput))
 		},
 	}
 	cmd.Flags().StringVar(&chat, "chat", "", "chat JID")
