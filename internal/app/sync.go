@@ -51,7 +51,7 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 
 	var messagesStored atomic.Int64
 	lastEvent := atomic.Int64{}
-	lastEvent.Store(time.Now().UTC().UnixNano())
+	lastEvent.Store(nowUTC().UnixNano())
 
 	disconnected := make(chan struct{}, 1)
 
@@ -78,7 +78,7 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 	if err := a.Connect(ctx, opts.AllowQR, opts.OnQRCode); err != nil {
 		return SyncResult{}, err
 	}
-	lastEvent.Store(time.Now().UTC().UnixNano())
+	lastEvent.Store(nowUTC().UnixNano())
 
 	// Optional: bootstrap imports (helps contacts/groups management without waiting for events).
 	if opts.RefreshContacts {
@@ -114,7 +114,7 @@ func chatKind(chat types.JID) string {
 }
 
 func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error {
-	chatJID := pm.Chat.String()
+	chatJID := canonicalJIDString(pm.Chat)
 	chatName := a.wa.ResolveChatName(ctx, pm.Chat, pm.PushName)
 	if err := a.db.UpsertChat(chatJID, chatKind(pm.Chat), chatName, pm.Timestamp); err != nil {
 		return err
@@ -122,10 +122,11 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 
 	// Best-effort: store contact info for DMs.
 	if pm.Chat.Server == types.DefaultUserServer {
-		if info, err := a.wa.GetContact(ctx, pm.Chat.ToNonAD()); err == nil {
+		chat := canonicalJID(pm.Chat)
+		if info, err := a.wa.GetContact(ctx, chat); err == nil {
 			_ = a.db.UpsertContact(
-				pm.Chat.String(),
-				pm.Chat.User,
+				chat.String(),
+				chat.User,
 				info.PushName,
 				info.FullName,
 				info.FirstName,
@@ -140,15 +141,18 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 	} else if s := strings.TrimSpace(pm.PushName); s != "" && s != "-" {
 		senderName = s
 	}
+	senderJID := pm.SenderJID
 	if pm.SenderJID != "" {
 		if jid, err := types.ParseJID(pm.SenderJID); err == nil {
-			if info, err := a.wa.GetContact(ctx, jid.ToNonAD()); err == nil {
+			contactJID := canonicalJID(jid)
+			senderJID = contactJID.String()
+			if info, err := a.wa.GetContact(ctx, contactJID); err == nil {
 				if name := wa.BestContactName(info); name != "" {
 					senderName = name
 				}
 				_ = a.db.UpsertContact(
-					jid.String(),
-					jid.User,
+					contactJID.String(),
+					contactJID.User,
 					info.PushName,
 					info.FullName,
 					info.FirstName,
@@ -172,7 +176,7 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 				}
 				ps = append(ps, store.GroupParticipant{
 					GroupJID: pm.Chat.String(),
-					UserJID:  p.JID.String(),
+					UserJID:  canonicalJIDString(p.JID),
 					Role:     role,
 				})
 			}
@@ -201,7 +205,7 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 		ChatJID:       chatJID,
 		ChatName:      chatName,
 		MsgID:         pm.ID,
-		SenderJID:     pm.SenderJID,
+		SenderJID:     senderJID,
 		SenderName:    senderName,
 		Timestamp:     pm.Timestamp,
 		FromMe:        pm.FromMe,

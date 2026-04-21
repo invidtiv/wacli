@@ -3,7 +3,6 @@ package store
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 func (d *DB) SearchContacts(query string, limit int) ([]Contact, error) {
@@ -85,7 +84,7 @@ func (d *DB) ListTags(jid string) ([]string, error) {
 }
 
 func (d *DB) UpsertContact(jid, phone, pushName, fullName, firstName, businessName string) error {
-	now := time.Now().UTC().Unix()
+	now := nowUTC().Unix()
 	_, err := d.sql.Exec(`
 		INSERT INTO contacts(jid, phone, push_name, full_name, first_name, business_name, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -105,7 +104,7 @@ func (d *DB) SetAlias(jid, alias string) error {
 	if alias == "" {
 		return fmt.Errorf("alias is required")
 	}
-	now := time.Now().UTC().Unix()
+	now := nowUTC().Unix()
 	_, err := d.sql.Exec(`
 		INSERT INTO contact_aliases(jid, alias, notes, updated_at)
 		VALUES (?, ?, NULL, ?)
@@ -124,7 +123,7 @@ func (d *DB) AddTag(jid, tag string) error {
 	if tag == "" {
 		return fmt.Errorf("tag is required")
 	}
-	now := time.Now().UTC().Unix()
+	now := nowUTC().Unix()
 	_, err := d.sql.Exec(`
 		INSERT INTO contact_tags(jid, tag, updated_at) VALUES(?, ?, ?)
 		ON CONFLICT(jid, tag) DO UPDATE SET updated_at=excluded.updated_at

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/wacli/internal/wa"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
@@ -84,6 +85,43 @@ func TestSyncStoresLiveAndHistoryMessages(t *testing.T) {
 	}
 	if n, err := a.db.CountMessages(); err != nil || n != 2 {
 		t.Fatalf("expected 2 messages in DB, got %d (err=%v)", n, err)
+	}
+}
+
+func TestStoreParsedMessageNormalizesDefaultUserADJIDs(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	chat := types.JID{User: "123:4", Server: types.DefaultUserServer}
+	sender := types.JID{User: "456:7", Server: types.DefaultUserServer}
+	f.contacts[chat.ToNonAD()] = types.ContactInfo{Found: true, FullName: "Alice"}
+	f.contacts[sender.ToNonAD()] = types.ContactInfo{Found: true, FullName: "Bob"}
+
+	err := a.storeParsedMessage(context.Background(), wa.ParsedMessage{
+		Chat:      chat,
+		ID:        "m-normalized",
+		SenderJID: sender.String(),
+		Timestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		Text:      "hello",
+	})
+	if err != nil {
+		t.Fatalf("storeParsedMessage: %v", err)
+	}
+
+	msg, err := a.db.GetMessage(chat.ToNonAD().String(), "m-normalized")
+	if err != nil {
+		t.Fatalf("GetMessage canonical chat: %v", err)
+	}
+	if msg.ChatJID != chat.ToNonAD().String() {
+		t.Fatalf("ChatJID = %q, want %q", msg.ChatJID, chat.ToNonAD().String())
+	}
+	wantSender, err := types.ParseJID(sender.String())
+	if err != nil {
+		t.Fatalf("ParseJID sender: %v", err)
+	}
+	if msg.SenderJID != wantSender.ToNonAD().String() {
+		t.Fatalf("SenderJID = %q, want %q", msg.SenderJID, wantSender.ToNonAD().String())
 	}
 }
 

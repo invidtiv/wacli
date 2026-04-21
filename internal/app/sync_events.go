@@ -7,7 +7,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/steipete/wacli/internal/wa"
 	"go.mau.fi/whatsmeow/types/events"
@@ -39,10 +38,10 @@ func (a *App) addSyncEventHandler(ctx context.Context, opts SyncOptions, message
 		}()
 		switch v := evt.(type) {
 		case *events.Message:
-			lastEvent.Store(time.Now().UTC().UnixNano())
+			lastEvent.Store(nowUTC().UnixNano())
 			a.handleLiveSyncMessage(ctx, opts, v, messagesStored, enqueueMedia)
 		case *events.HistorySync:
-			lastEvent.Store(time.Now().UTC().UnixNano())
+			lastEvent.Store(nowUTC().UnixNano())
 			a.handleHistorySync(ctx, opts, v, messagesStored, lastEvent, enqueueMedia)
 		case *events.Connected:
 			fmt.Fprintln(os.Stderr, "\nConnected.")
@@ -82,13 +81,13 @@ func (a *App) handleLiveSyncMessage(ctx context.Context, opts SyncOptions, v *ev
 func (a *App) handleHistorySync(ctx context.Context, opts SyncOptions, v *events.HistorySync, messagesStored, lastEvent *atomic.Int64, enqueueMedia func(string, string)) {
 	fmt.Fprintf(os.Stderr, "\nProcessing history sync (%d conversations)...\n", len(v.Data.Conversations))
 	for _, conv := range v.Data.Conversations {
-		lastEvent.Store(time.Now().UTC().UnixNano())
+		lastEvent.Store(nowUTC().UnixNano())
 		chatID := strings.TrimSpace(conv.GetID())
 		if chatID == "" {
 			continue
 		}
 		for _, m := range conv.Messages {
-			lastEvent.Store(time.Now().UTC().UnixNano())
+			lastEvent.Store(nowUTC().UnixNano())
 			if m.Message == nil {
 				continue
 			}

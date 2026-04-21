@@ -21,6 +21,9 @@ func newGroupsInfoCmd(flags *rootFlags) *cobra.Command {
 			if strings.TrimSpace(jidStr) == "" {
 				return fmt.Errorf("--jid is required")
 			}
+			if err := flags.requireWritable(); err != nil {
+				return err
+			}
 			ctx, cancel := withTimeout(context.Background(), flags)
 			defer cancel()
 
@@ -77,6 +80,9 @@ func newGroupsRenameCmd(flags *rootFlags) *cobra.Command {
 			if strings.TrimSpace(jidStr) == "" || strings.TrimSpace(name) == "" {
 				return fmt.Errorf("--jid and --name are required")
 			}
+			if err := flags.requireWritable(); err != nil {
+				return err
+			}
 			ctx, cancel := withTimeout(context.Background(), flags)
 			defer cancel()
 
@@ -124,6 +130,9 @@ func newGroupsLeaveCmd(flags *rootFlags) *cobra.Command {
 			if strings.TrimSpace(jidStr) == "" {
 				return fmt.Errorf("--jid is required")
 			}
+			if err := flags.requireWritable(); err != nil {
+				return err
+			}
 			ctx, cancel := withTimeout(context.Background(), flags)
 			defer cancel()
 
@@ -146,6 +155,7 @@ func newGroupsLeaveCmd(flags *rootFlags) *cobra.Command {
 			if err := a.WA().LeaveGroup(ctx, gjid); err != nil {
 				return err
 			}
+			_ = a.DB().MarkGroupLeft(gjid.String(), time.Now().UTC())
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, map[string]any{"jid": gjid.String(), "left": true})
 			}

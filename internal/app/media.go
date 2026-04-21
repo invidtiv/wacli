@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/steipete/wacli/internal/fsutil"
 	"github.com/steipete/wacli/internal/pathutil"
@@ -152,6 +151,6 @@ func (a *App) downloadMediaJob(ctx context.Context, job mediaJob) error {
 		return err
 	}
 
-	now := time.Now().UTC()
+	now := nowUTC()
 	return a.db.MarkMediaDownloaded(info.ChatJID, info.MsgID, targetPath, now)
 }

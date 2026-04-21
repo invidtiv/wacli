@@ -1,9 +1,6 @@
 package app
 
-import (
-	"context"
-	"time"
-)
+import "context"
 
 func (a *App) refreshContacts(ctx context.Context) error {
 	if err := a.OpenWA(); err != nil {
@@ -14,6 +11,7 @@ func (a *App) refreshContacts(ctx context.Context) error {
 		return err
 	}
 	for jid, info := range contacts {
+		jid = canonicalJID(jid)
 		_ = a.db.UpsertContact(
 			jid.String(),
 			jid.User,
@@ -34,7 +32,7 @@ func (a *App) refreshGroups(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
+	now := nowUTC()
 	for _, g := range groups {
 		if g == nil {
 			continue

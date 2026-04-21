@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 type migration struct {
@@ -18,6 +17,7 @@ var schemaMigrations = []migration{
 	{version: 1, name: "core schema", up: migrateCoreSchema},
 	{version: 2, name: "messages display_text column", up: migrateMessagesDisplayText},
 	{version: 3, name: "messages fts", up: migrateMessagesFTS},
+	{version: 4, name: "groups left_at column", up: migrateGroupsLeftAt},
 }
 
 func (d *DB) ensureSchema() error {
@@ -60,12 +60,26 @@ func (d *DB) ensureSchema() error {
 			`INSERT INTO schema_migrations(version, name, applied_at) VALUES(?, ?, ?)`,
 			m.version,
 			m.name,
-			time.Now().UTC().Unix(),
+			nowUTC().Unix(),
 		); err != nil {
 			return fmt.Errorf("record migration %03d: %w", m.version, err)
 		}
 	}
 
+	return nil
+}
+
+func migrateGroupsLeftAt(d *DB) error {
+	hasLeftAt, err := d.tableHasColumn("groups", "left_at")
+	if err != nil {
+		return err
+	}
+	if hasLeftAt {
+		return nil
+	}
+	if _, err := d.sql.Exec(`ALTER TABLE groups ADD COLUMN left_at INTEGER`); err != nil {
+		return fmt.Errorf("add groups.left_at column: %w", err)
+	}
 	return nil
 }
 

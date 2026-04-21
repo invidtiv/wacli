@@ -19,6 +19,7 @@ type Group struct {
 	Name      string
 	OwnerJID  string
 	CreatedAt time.Time
+	LeftAt    time.Time
 	UpdatedAt time.Time
 }
 

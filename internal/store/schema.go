@@ -25,6 +25,7 @@ const coreSchemaSQL = `
 		name TEXT,
 		owner_jid TEXT,
 		created_ts INTEGER,
+		left_at INTEGER,
 		updated_at INTEGER NOT NULL
 	);
 
