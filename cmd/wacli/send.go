@@ -26,6 +26,7 @@ func newSendCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.AddCommand(newSendTextCmd(flags))
 	cmd.AddCommand(newSendFileCmd(flags))
+	cmd.AddCommand(newSendReactCmd(flags))
 	return cmd
 }
 
@@ -67,7 +68,9 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			msgID, err := sendTextMessage(ctx, a, toJID, message, replyTo, replyToSender)
+			msgID, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (types.MessageID, error) {
+				return sendTextMessage(ctx, a, toJID, message, replyTo, replyToSender)
+			})
 			if err != nil {
 				return err
 			}
