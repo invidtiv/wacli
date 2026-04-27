@@ -6,7 +6,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.42
 	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/spf13/cobra v1.10.2
-	go.mau.fi/whatsmeow v0.0.0-20260421083005-5b8886176ff7
+	go.mau.fi/whatsmeow v0.0.0-20260427122815-7514259253a7
 	golang.org/x/sys v0.43.0
 	golang.org/x/term v0.42.0
 	google.golang.org/protobuf v1.36.11
