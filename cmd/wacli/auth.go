@@ -18,6 +18,7 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	var follow bool
 	var idleExit time.Duration
 	var downloadMedia bool
+	var qrFormat string
 
 	cmd := &cobra.Command{
 		Use:   "auth",
@@ -25,6 +26,13 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := flags.requireWritable(); err != nil {
 				return err
+			}
+			qrFormat, err := normalizeAuthQRFormat(qrFormat)
+			if err != nil {
+				return err
+			}
+			if flags.asJSON && qrFormat == "text" {
+				return fmt.Errorf("--qr-format=text cannot be combined with --json because both write to stdout")
 			}
 			ctx, stop := signalContext()
 			defer stop()
@@ -48,11 +56,7 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 				RefreshContacts: true,
 				RefreshGroups:   true,
 				IdleExit:        idleExit,
-				OnQRCode: func(code string) {
-					fmt.Fprintln(os.Stderr, "\nScan this QR code with WhatsApp (Linked Devices):")
-					qrterminal.GenerateHalfBlock(code, qrterminal.M, os.Stderr)
-					fmt.Fprintln(os.Stderr)
-				},
+				OnQRCode:        authQRWriter(qrFormat, os.Stdout, os.Stderr),
 			})
 			if err != nil {
 				return err
@@ -73,11 +77,38 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&follow, "follow", false, "keep syncing after auth")
 	cmd.Flags().DurationVar(&idleExit, "idle-exit", 30*time.Second, "exit after being idle (bootstrap/once modes)")
 	cmd.Flags().BoolVar(&downloadMedia, "download-media", false, "download media in the background during sync")
+	cmd.Flags().StringVar(&qrFormat, "qr-format", "terminal", "QR output format: terminal or text")
 
 	cmd.AddCommand(newAuthStatusCmd(flags))
 	cmd.AddCommand(newAuthLogoutCmd(flags))
 
 	return cmd
+}
+
+func normalizeAuthQRFormat(format string) (string, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if format == "" {
+		format = "terminal"
+	}
+	switch format {
+	case "terminal", "text":
+		return format, nil
+	default:
+		return "", fmt.Errorf("unsupported --qr-format %q (want terminal or text)", format)
+	}
+}
+
+func authQRWriter(format string, stdout, stderr io.Writer) func(string) {
+	if format == "text" {
+		return func(code string) {
+			fmt.Fprintln(stdout, code)
+		}
+	}
+	return func(code string) {
+		fmt.Fprintln(stderr, "\nScan this QR code with WhatsApp (Linked Devices):")
+		qrterminal.GenerateHalfBlock(code, qrterminal.M, stderr)
+		fmt.Fprintln(stderr)
+	}
 }
 
 func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
