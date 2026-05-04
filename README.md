@@ -88,6 +88,7 @@ pnpm wacli media download --chat 1234567890@s.whatsapp.net --id <message-id>
 
 # Send a message
 pnpm wacli send text --to 1234567890 --message "hello"
+# Phone numbers can also be passed as +E164 or formatted input like "+1 (234) 567-8900"
 
 # Send a quoted reply
 pnpm wacli send text --to 1234567890 --message "replying" --reply-to <message-id>
@@ -169,8 +170,8 @@ Global flags:
 
 ## Environment overrides
 
-- `WACLI_DEVICE_LABEL`: set the linked device label (shown in WhatsApp).
-- `WACLI_DEVICE_PLATFORM`: override the linked device platform (defaults to `CHROME` if unset or invalid).
+- `WACLI_DEVICE_LABEL`: override the linked device label shown in WhatsApp (defaults to `wacli - <OS> (<hostname>)` when detectable).
+- `WACLI_DEVICE_PLATFORM`: override the linked device platform (defaults to `DESKTOP`; invalid values fall back to `CHROME`).
 - `WACLI_READONLY`: set to `1`, `true`, `yes`, or `on` to enable read-only mode.
 - `WACLI_STORE_DIR`: override the default store directory.
 
