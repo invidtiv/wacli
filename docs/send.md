@@ -2,14 +2,14 @@
 
 Read when: sending text, files, quoted replies, or reactions.
 
-`wacli send` requires authentication, a live connection, and writable mode. Send attempts are bounded and retry once after reconnect for known stale-session/usync timeout failures. Repeated send commands within 5 seconds print a stderr warning so tight loops make WhatsApp rate-limit/account-risk visible.
+`wacli send` requires authentication, a live connection, and writable mode. Send attempts are bounded and retry once after reconnect for known stale-session/usync timeout failures. After a successful send, wacli keeps the connection alive briefly so whatsmeow can handle retry receipts from devices that could not decrypt the first copy. Repeated send commands within 5 seconds print a stderr warning so tight loops make WhatsApp rate-limit/account-risk visible.
 
 ## Commands
 
 ```bash
-wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID]
-wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID]
-wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID]
+wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]
 ```
 
 ## Recipients
@@ -26,6 +26,7 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID]
 - `send react` defaults to thumbs-up.
 - Pass `--reaction ""` to clear a reaction.
 - For group reactions, pass `--sender` for the original message sender.
+- Use `--post-send-wait 0` to disable the retry-receipt grace window for latency-sensitive scripts.
 
 ## Files
 

@@ -36,6 +36,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	var message string
 	var replyTo string
 	var replyToSender string
+	postSendWait := postSendRetryReceiptWait
 
 	cmd := &cobra.Command{
 		Use:   "text",
@@ -95,6 +96,8 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 				Text:       message,
 			})
 
+			waitForPostSendRetryReceipts(ctx, postSendWait)
+
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, map[string]any{
 					"sent": true,
@@ -112,6 +115,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&message, "message", "", "message text")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "message ID to quote/reply to")
 	cmd.Flags().StringVar(&replyToSender, "reply-to-sender", "", "sender JID of the quoted message (required for unsynced group replies)")
+	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after send so retry receipts can be handled (0 disables)")
 	return cmd
 }
 

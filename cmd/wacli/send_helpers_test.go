@@ -69,6 +69,28 @@ func TestRunSendAttemptTimesOut(t *testing.T) {
 	}
 }
 
+func TestWaitForPostSendRetryReceipts(t *testing.T) {
+	start := time.Now()
+	waitForPostSendRetryReceipts(context.Background(), 10*time.Millisecond)
+	if elapsed := time.Since(start); elapsed < 10*time.Millisecond {
+		t.Fatalf("wait elapsed %s, want at least 10ms", elapsed)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start = time.Now()
+	waitForPostSendRetryReceipts(ctx, time.Minute)
+	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+		t.Fatalf("canceled wait elapsed %s, want quick return", elapsed)
+	}
+
+	start = time.Now()
+	waitForPostSendRetryReceipts(context.Background(), 0)
+	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+		t.Fatalf("disabled wait elapsed %s, want quick return", elapsed)
+	}
+}
+
 func TestIsRetryableSendError(t *testing.T) {
 	if !isRetryableSendError(fmt.Errorf("wrapped: %w", whatsmeow.ErrIQTimedOut)) {
 		t.Fatalf("expected ErrIQTimedOut to be retryable")

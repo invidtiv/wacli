@@ -18,6 +18,7 @@ func newSendReactCmd(flags *rootFlags) *cobra.Command {
 	var msgID string
 	var emoji string
 	var sender string
+	postSendWait := postSendRetryReceiptWait
 
 	cmd := &cobra.Command{
 		Use:   "react",
@@ -60,6 +61,8 @@ func newSendReactCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
+			waitForPostSendRetryReceipts(ctx, postSendWait)
+
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, map[string]any{
 					"sent":     true,
@@ -82,6 +85,7 @@ func newSendReactCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&msgID, "id", "", "target message ID")
 	cmd.Flags().StringVar(&emoji, "reaction", "\U0001f44d", "reaction emoji (pass an empty string to remove)")
 	cmd.Flags().StringVar(&sender, "sender", "", "message sender JID (required for group messages)")
+	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after send so retry receipts can be handled (0 disables)")
 	return cmd
 }
 

@@ -15,6 +15,7 @@ import (
 )
 
 const sendAttemptTimeout = 45 * time.Second
+const postSendRetryReceiptWait = 2 * time.Second
 const rapidSendWarningThreshold = 5 * time.Second
 const lastSendAttemptFile = ".last-send-at"
 
@@ -91,6 +92,18 @@ func reconnectForSend(a interface {
 	return func(ctx context.Context) error {
 		a.WA().Close()
 		return a.Connect(ctx, false, nil)
+	}
+}
+
+func waitForPostSendRetryReceipts(ctx context.Context, d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
 	}
 }
 

@@ -19,6 +19,7 @@ func newSendFileCmd(flags *rootFlags) *cobra.Command {
 	var mimeOverride string
 	var replyTo string
 	var replyToSender string
+	postSendWait := postSendRetryReceiptWait
 
 	cmd := &cobra.Command{
 		Use:   "file",
@@ -71,6 +72,8 @@ func newSendFileCmd(flags *rootFlags) *cobra.Command {
 			}
 			msgID, meta := res.id, res.meta
 
+			waitForPostSendRetryReceipts(ctx, postSendWait)
+
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, map[string]any{
 					"sent": true,
@@ -92,5 +95,6 @@ func newSendFileCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&mimeOverride, "mime", "", "override detected mime type")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "message ID to quote/reply to")
 	cmd.Flags().StringVar(&replyToSender, "reply-to-sender", "", "sender JID of the quoted message (required for unsynced group replies)")
+	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after send so retry receipts can be handled (0 disables)")
 	return cmd
 }

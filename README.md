@@ -39,7 +39,7 @@ Core implementation is in place. Start with [docs/overview.md](docs/overview.md)
 - **Auth + sync**: `auth` shows QR login and bootstraps sync; `sync` is non-interactive, can run once or follow continuously, and can refresh contacts/groups.
 - **Offline message store**: local SQLite store with FTS5 search when available and LIKE fallback.
 - **Message tools**: list/search/show/context with chat, sender, direction, time, order, and media-type filters.
-- **Sending**: send text, quoted replies, and image/video/audio/document files with captions, MIME override, and custom display filenames. Rapid repeated sends warn on stderr.
+- **Sending**: send text, quoted replies, and image/video/audio/document files with captions, MIME override, and custom display filenames. Sends keep a short retry-receipt grace window, and rapid repeated sends warn on stderr.
 - **Media**: download synced message media on demand, or download in the background during auth/sync; send-file uploads and downloads are capped at 100 MiB.
 - **Contacts/chats/groups**: search/show contacts, local aliases/tags, list/show chats, refresh/list/info/rename groups, manage participants, invite links, join, and leave; left groups are hidden after leave.
 - **Presence**: send typing/paused indicators.
@@ -156,9 +156,9 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli messages search <query> [--chat JID] [--from JID] [--has-media] [--type text|image|video|audio|document] [--forwarded]`
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
-- `wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID]`
-- `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID]`
-- `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID]`
+- `wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]`
 - `wacli media download --chat JID --id MSG_ID [--output PATH]`
 - `wacli contacts search <query>`
 - `wacli contacts show --jid JID`
