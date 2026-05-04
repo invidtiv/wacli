@@ -27,7 +27,7 @@
 - History: cap on-demand backfill at 500 messages per request and 100 requests per run.
 - Messages: normalize device-specific `@s.whatsapp.net` JIDs before storing chats, contacts, and senders.
 - Messages: include mapped `@lid` rows when listing, searching, showing, or contextualizing by phone-number chat JID.
-- Messages: read stored sender names back from SQLite and prefer them in message output.
+- Messages: read stored sender names back from SQLite and resolve blank historical `@lid` senders at display time.
 - Messages: store forwarded-message metadata and add `--forwarded` filters for list/search. (#24 — thanks @bnvyas)
 - Doctor: report lock owner PID and distinguish paired stores locked by another process. (#105 — thanks @artemgetmann)
 - Media: recover panics per download job so one bad payload no longer drains the worker pool. (#179 — thanks @shaun0927)

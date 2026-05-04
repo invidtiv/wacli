@@ -103,6 +103,7 @@ func newMessagesListCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			msgs = resolveMessageSenderNames(ctx, a, msgs)
 
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, map[string]any{
@@ -187,6 +188,7 @@ func newMessagesSearchCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			msgs = resolveMessageSenderNames(ctx, a, msgs)
 
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, map[string]any{
@@ -269,6 +271,80 @@ func jidStrings(jids []types.JID) []string {
 	return out
 }
 
+type lidSenderResolver interface {
+	ResolveLIDToPN(context.Context, types.JID) types.JID
+}
+
+func resolveMessageSenderNames(ctx context.Context, a *app.App, msgs []store.Message) []store.Message {
+	if len(msgs) == 0 || !messagesNeedSenderResolution(msgs) {
+		return msgs
+	}
+	if _, err := os.Stat(filepath.Join(a.StoreDir(), "session.db")); err != nil {
+		return msgs
+	}
+	if err := a.OpenWA(); err != nil {
+		return msgs
+	}
+	return resolveMessageSenderNamesWith(ctx, a.DB(), a.WA(), msgs)
+}
+
+func messagesNeedSenderResolution(msgs []store.Message) bool {
+	for _, msg := range msgs {
+		if !msg.FromMe && strings.TrimSpace(msg.SenderName) == "" && strings.HasSuffix(strings.TrimSpace(msg.SenderJID), "@"+types.HiddenUserServer) {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveMessageSenderNamesWith(ctx context.Context, db *store.DB, resolver lidSenderResolver, msgs []store.Message) []store.Message {
+	if resolver == nil {
+		return msgs
+	}
+	cache := map[string]string{}
+	for i := range msgs {
+		if msgs[i].FromMe || strings.TrimSpace(msgs[i].SenderName) != "" {
+			continue
+		}
+		sender := strings.TrimSpace(msgs[i].SenderJID)
+		if sender == "" {
+			continue
+		}
+		if name, ok := cache[sender]; ok {
+			msgs[i].SenderName = name
+			continue
+		}
+		name := resolvedSenderName(ctx, db, resolver, sender)
+		cache[sender] = name
+		msgs[i].SenderName = name
+	}
+	return msgs
+}
+
+func resolvedSenderName(ctx context.Context, db *store.DB, resolver lidSenderResolver, sender string) string {
+	jid, err := types.ParseJID(sender)
+	if err != nil || jid.Server != types.HiddenUserServer {
+		return ""
+	}
+	pn := resolver.ResolveLIDToPN(ctx, jid)
+	if pn.IsEmpty() || pn == jid {
+		return ""
+	}
+	contact, err := db.GetContact(pn.String())
+	if err == nil {
+		if contact.Alias != "" {
+			return contact.Alias
+		}
+		if contact.Name != "" {
+			return contact.Name
+		}
+		if contact.Phone != "" {
+			return contact.Phone
+		}
+	}
+	return pn.String()
+}
+
 func newMessagesShowCmd(flags *rootFlags) *cobra.Command {
 	var chat string
 	var id string
@@ -298,6 +374,7 @@ func newMessagesShowCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			m = resolveMessageSenderNames(ctx, a, []store.Message{m})[0]
 
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, m)
@@ -343,6 +420,7 @@ func newMessagesContextCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			msgs = resolveMessageSenderNames(ctx, a, msgs)
 
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, msgs)

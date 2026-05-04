@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/steipete/wacli/internal/store"
+	"go.mau.fi/whatsmeow/types"
 )
 
 func TestTruncate(t *testing.T) {
@@ -189,4 +191,55 @@ func TestGetMessageByChatFilterTriesMappedChatJIDs(t *testing.T) {
 	if len(msgs) != 1 || msgs[0].ChatJID != lid {
 		t.Fatalf("context = %+v", msgs)
 	}
+}
+
+func TestResolveMessageSenderNamesUsesLIDMappingAndContacts(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "wacli.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer db.Close()
+
+	pn := "15551234567@s.whatsapp.net"
+	lid := "123456789@lid"
+	if err := db.UpsertContact(pn, "+15551234567", "", "Alice", "", ""); err != nil {
+		t.Fatalf("UpsertContact: %v", err)
+	}
+	resolver := fakeLIDResolver{lid: mustParseJID(t, lid), pn: mustParseJID(t, pn)}
+
+	msgs := resolveMessageSenderNamesWith(context.Background(), db, resolver, []store.Message{
+		{SenderJID: lid, Text: "hello"},
+		{SenderJID: "someone@s.whatsapp.net", Text: "plain"},
+		{SenderJID: lid, SenderName: "Existing", Text: "kept"},
+	})
+	if msgs[0].SenderName != "Alice" {
+		t.Fatalf("resolved SenderName = %q, want Alice", msgs[0].SenderName)
+	}
+	if msgs[1].SenderName != "" {
+		t.Fatalf("non-LID SenderName = %q, want empty", msgs[1].SenderName)
+	}
+	if msgs[2].SenderName != "Existing" {
+		t.Fatalf("existing SenderName = %q", msgs[2].SenderName)
+	}
+}
+
+type fakeLIDResolver struct {
+	lid types.JID
+	pn  types.JID
+}
+
+func (f fakeLIDResolver) ResolveLIDToPN(ctx context.Context, jid types.JID) types.JID {
+	if jid == f.lid {
+		return f.pn
+	}
+	return jid
+}
+
+func mustParseJID(t *testing.T, s string) types.JID {
+	t.Helper()
+	jid, err := types.ParseJID(s)
+	if err != nil {
+		t.Fatalf("ParseJID(%q): %v", s, err)
+	}
+	return jid
 }
