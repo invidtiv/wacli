@@ -30,18 +30,7 @@ func sendFile(ctx context.Context, a interface {
 	if name == "" {
 		name = filepath.Base(filePath)
 	}
-	mimeType := strings.TrimSpace(mimeOverride)
-	if mimeType == "" {
-		// Use filePath for MIME detection, not the display name override
-		mimeType = mime.TypeByExtension(strings.ToLower(filepath.Ext(filePath)))
-	}
-	if mimeType == "" {
-		sniff := data
-		if len(sniff) > 512 {
-			sniff = sniff[:512]
-		}
-		mimeType = http.DetectContentType(sniff)
-	}
+	mimeType := detectSendFileMIME(filePath, mimeOverride, data)
 
 	mediaType := "document"
 	uploadType, _ := wa.MediaTypeFromString("document")
@@ -160,4 +149,23 @@ func chatKindFromJID(j types.JID) string {
 		return "dm"
 	}
 	return "unknown"
+}
+
+func detectSendFileMIME(filePath, mimeOverride string, data []byte) string {
+	mimeType := strings.TrimSpace(mimeOverride)
+	if mimeType == "" {
+		// Use filePath for MIME detection, not the display name override.
+		mimeType = mime.TypeByExtension(strings.ToLower(filepath.Ext(filePath)))
+	}
+	if mimeType == "" {
+		sniff := data
+		if len(sniff) > 512 {
+			sniff = sniff[:512]
+		}
+		mimeType = http.DetectContentType(sniff)
+	}
+	if mimeType == "audio/ogg" || mimeType == "application/ogg" {
+		return "audio/ogg; codecs=opus"
+	}
+	return mimeType
 }

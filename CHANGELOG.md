@@ -33,6 +33,7 @@
 - Search: keep FTS5 enabled after reopening existing databases with already-applied migrations. (#185 — thanks @iamhitarth)
 - Send: add `send text --reply-to` for quoted replies, with sender inference for synced group messages. (#154 — thanks @draix)
 - Send: bound send attempts and reconnect once for stale-session/time-out failures instead of hanging indefinitely. (#115 — thanks @0xatrilla)
+- Send: include the Opus codec parameter when sending OGG audio so WhatsApp delivers it as audio. (#41 — thanks @emre6943)
 - Send: persist retry-message plaintext so linked devices can decrypt retried messages. (#186 — thanks @SimDamDev)
 - Store: use the XDG state directory on Linux by default, while keeping existing `~/.wacli` stores working. (#172, #164 — thanks @txhno)
 - Sync: guard lazy WhatsApp client initialization against concurrent `OpenWA` calls. (#62 — thanks @thakoreh)
