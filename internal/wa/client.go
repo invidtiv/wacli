@@ -71,8 +71,10 @@ func (c *Client) IsConnected() bool {
 }
 
 type ConnectOptions struct {
-	AllowQR  bool
-	OnQRCode func(code string)
+	AllowQR         bool
+	OnQRCode        func(code string)
+	PairPhoneNumber string
+	OnPairCode      func(code string)
 }
 
 func (c *Client) Connect(ctx context.Context, opts ConnectOptions) error {
@@ -88,7 +90,7 @@ func (c *Client) Connect(ctx context.Context, opts ConnectOptions) error {
 	}
 
 	authed := cli.Store != nil && cli.Store.ID != nil
-	if !authed && !opts.AllowQR {
+	if !authed && !opts.AllowQR && opts.PairPhoneNumber == "" {
 		return fmt.Errorf("not authenticated; run `wacli auth`")
 	}
 
@@ -110,6 +112,7 @@ func (c *Client) Connect(ctx context.Context, opts ConnectOptions) error {
 	}
 
 	// Wait for QR flow to succeed or fail.
+	pairCodeRequested := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -120,7 +123,19 @@ func (c *Client) Connect(ctx context.Context, opts ConnectOptions) error {
 			}
 			switch {
 			case evt.Event == whatsmeow.QRChannelEventCode:
-				if opts.OnQRCode != nil {
+				if opts.PairPhoneNumber != "" {
+					if pairCodeRequested {
+						continue
+					}
+					code, err := cli.PairPhone(ctx, opts.PairPhoneNumber, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+					if err != nil {
+						return fmt.Errorf("pair phone: %w", err)
+					}
+					pairCodeRequested = true
+					if opts.OnPairCode != nil {
+						opts.OnPairCode(code)
+					}
+				} else if opts.OnQRCode != nil {
 					opts.OnQRCode(evt.Code)
 				} else {
 					qrterminal.GenerateHalfBlock(evt.Code, qrterminal.M, os.Stdout)

@@ -24,6 +24,8 @@ type SyncOptions struct {
 	Mode            SyncMode
 	AllowQR         bool
 	OnQRCode        func(string)
+	PairPhoneNumber string
+	OnPairCode      func(string)
 	AfterConnect    func(context.Context) error
 	DownloadMedia   bool
 	RefreshContacts bool
@@ -75,7 +77,12 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 		defer stopMedia()
 	}
 
-	if err := a.Connect(ctx, opts.AllowQR, opts.OnQRCode); err != nil {
+	if err := a.wa.Connect(ctx, wa.ConnectOptions{
+		AllowQR:         opts.AllowQR,
+		OnQRCode:        opts.OnQRCode,
+		PairPhoneNumber: opts.PairPhoneNumber,
+		OnPairCode:      opts.OnPairCode,
+	}); err != nil {
 		return SyncResult{}, err
 	}
 	lastEvent.Store(nowUTC().UnixNano())

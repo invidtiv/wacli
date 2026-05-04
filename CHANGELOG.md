@@ -13,6 +13,7 @@
 - Messages: add `messages search --has-media`, `--type text`, case-insensitive media types, and validation for contradictory filters. (#128 — thanks @ImLukeF and @Mansehej)
 - Messages: extract searchable/display text from WhatsApp Business templates, buttons, interactive messages, and list replies. (#79 — thanks @terry-li-hm)
 - Auth: add `auth --qr-format text` to print the raw WhatsApp QR payload for external renderers. (#22 — thanks @teren-papercutlabs)
+- Auth: add `auth --phone` for WhatsApp's phone-number pairing flow on headless systems. (#148, #184 — thanks @giovanninibarbosa and @KillerSnails)
 - Send: add `send react` to add or clear reactions, with group sender validation. (#151 — thanks @draix)
 
 ### Security

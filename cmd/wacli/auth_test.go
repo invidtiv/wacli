@@ -90,6 +90,51 @@ func TestAuthQRWriterText(t *testing.T) {
 	}
 }
 
+func TestNormalizePairPhone(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{input: "", want: ""},
+		{input: "+15551234567", want: "15551234567"},
+		{input: "15551234567", want: "15551234567"},
+		{input: "123@g.us", wantErr: true},
+		{input: "123abc", wantErr: true},
+	}
+	for _, tc := range tests {
+		got, err := normalizePairPhone(tc.input)
+		if tc.wantErr {
+			if err == nil {
+				t.Fatalf("normalizePairPhone(%q) expected error", tc.input)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("normalizePairPhone(%q): %v", tc.input, err)
+		}
+		if got != tc.want {
+			t.Fatalf("normalizePairPhone(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestAuthPairCodeWriter(t *testing.T) {
+	var stderr bytes.Buffer
+	writer := authPairCodeWriter("15551234567", &stderr)
+	if writer == nil {
+		t.Fatal("expected writer")
+	}
+	writer("ABCD-1234")
+	got := stderr.String()
+	if !strings.Contains(got, "Pairing code for +15551234567: ABCD-1234") {
+		t.Fatalf("stderr = %q", got)
+	}
+	if authPairCodeWriter("", &stderr) != nil {
+		t.Fatal("expected nil writer without phone")
+	}
+}
+
 func TestAuthCommandExposesQRFormat(t *testing.T) {
 	cmd := newAuthCmd(&rootFlags{})
 	flag := cmd.Flags().Lookup("qr-format")
@@ -98,6 +143,9 @@ func TestAuthCommandExposesQRFormat(t *testing.T) {
 	}
 	if flag.DefValue != "terminal" {
 		t.Fatalf("qr-format default = %q", flag.DefValue)
+	}
+	if cmd.Flags().Lookup("phone") == nil {
+		t.Fatal("expected --phone flag")
 	}
 }
 

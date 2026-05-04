@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	appPkg "github.com/steipete/wacli/internal/app"
 	"github.com/steipete/wacli/internal/out"
+	"github.com/steipete/wacli/internal/wa"
+	"go.mau.fi/whatsmeow/types"
 )
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
@@ -19,6 +21,7 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	var idleExit time.Duration
 	var downloadMedia bool
 	var qrFormat string
+	var phone string
 
 	cmd := &cobra.Command{
 		Use:   "auth",
@@ -33,6 +36,10 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flags.asJSON && qrFormat == "text" {
 				return fmt.Errorf("--qr-format=text cannot be combined with --json because both write to stdout")
+			}
+			pairPhone, err := normalizePairPhone(phone)
+			if err != nil {
+				return err
 			}
 			ctx, stop := signalContext()
 			defer stop()
@@ -57,6 +64,8 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 				RefreshGroups:   true,
 				IdleExit:        idleExit,
 				OnQRCode:        authQRWriter(qrFormat, os.Stdout, os.Stderr),
+				PairPhoneNumber: pairPhone,
+				OnPairCode:      authPairCodeWriter(pairPhone, os.Stderr),
 			})
 			if err != nil {
 				return err
@@ -78,11 +87,27 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().DurationVar(&idleExit, "idle-exit", 30*time.Second, "exit after being idle (bootstrap/once modes)")
 	cmd.Flags().BoolVar(&downloadMedia, "download-media", false, "download media in the background during sync")
 	cmd.Flags().StringVar(&qrFormat, "qr-format", "terminal", "QR output format: terminal or text")
+	cmd.Flags().StringVar(&phone, "phone", "", "pair by phone number instead of QR code")
 
 	cmd.AddCommand(newAuthStatusCmd(flags))
 	cmd.AddCommand(newAuthLogoutCmd(flags))
 
 	return cmd
+}
+
+func normalizePairPhone(phone string) (string, error) {
+	phone = strings.TrimSpace(phone)
+	if phone == "" {
+		return "", nil
+	}
+	jid, err := wa.ParseUserOrJID(phone)
+	if err != nil {
+		return "", fmt.Errorf("invalid --phone: %w", err)
+	}
+	if jid.Server != types.DefaultUserServer || jid.Device != 0 {
+		return "", fmt.Errorf("invalid --phone: must be an international phone number")
+	}
+	return jid.User, nil
 }
 
 func normalizeAuthQRFormat(format string) (string, error) {
@@ -108,6 +133,17 @@ func authQRWriter(format string, stdout, stderr io.Writer) func(string) {
 		fmt.Fprintln(stderr, "\nScan this QR code with WhatsApp (Linked Devices):")
 		qrterminal.GenerateHalfBlock(code, qrterminal.M, stderr)
 		fmt.Fprintln(stderr)
+	}
+}
+
+func authPairCodeWriter(phone string, stderr io.Writer) func(string) {
+	if phone == "" {
+		return nil
+	}
+	return func(code string) {
+		fmt.Fprintf(stderr, "\nPairing code for +%s: %s\n", phone, code)
+		fmt.Fprintln(stderr, "On your phone: WhatsApp > Linked Devices > Link a Device > Link with phone number.")
+		fmt.Fprintln(stderr, "Enter the code above and keep this command running until authentication completes.")
 	}
 }
 
