@@ -12,7 +12,26 @@ This is a third-party tool that uses the WhatsApp Web protocol via `whatsmeow` a
 
 ## Status
 
-Core implementation is in place. See `docs/spec.md` for design notes.
+Core implementation is in place. Start with [docs/overview.md](docs/overview.md) for the command map and [docs/spec.md](docs/spec.md) for design notes.
+
+## Documentation
+
+- [Overview](docs/overview.md): store model, global flags, common flow, command index.
+- [Auth](docs/auth.md): `auth`, `auth status`, `auth logout`.
+- [Sync](docs/sync.md): `sync --once`, `sync --follow`, refresh, media download.
+- [Messages](docs/messages.md): `messages list/search/show/context`.
+- [Send](docs/send.md): `send text/file/react`, recipient resolution, replies.
+- [Media](docs/media.md): `media download`.
+- [Contacts](docs/contacts.md): `contacts search/show/refresh`, aliases, tags.
+- [Chats](docs/chats.md): `chats list/show`.
+- [Groups](docs/groups.md): group list, refresh, info, rename, leave, participants, invites, join.
+- [History](docs/history.md): `history backfill`.
+- [Presence](docs/presence.md): `presence typing/paused`.
+- [Doctor](docs/doctor.md): `doctor [--connect]`.
+- [Version](docs/version.md): `version`, `--version`.
+- [Completion](docs/completion.md): generated shell completions.
+- [Help](docs/help.md): `help`, per-command `--help`.
+- [Release](docs/release.md): release workflow and artifact expectations.
 
 ## Major features
 
@@ -124,12 +143,14 @@ pnpm wacli presence paused --to 1234567890
 
 ## Command surface
 
-- `wacli auth [--follow] [--idle-exit 30s] [--download-media]`
+Full command docs live under [docs/overview.md](docs/overview.md). Quick reference:
+
+- `wacli auth [--follow] [--idle-exit 30s] [--download-media] [--qr-format terminal|text] [--phone PHONE]`
 - `wacli auth status`
 - `wacli auth logout`
 - `wacli sync [--once] [--follow] [--idle-exit 30s] [--max-reconnect 5m] [--download-media] [--refresh-contacts] [--refresh-groups]`
-- `wacli messages list [--chat JID] [--sender JID] [--from-me|--from-them] [--asc] [--limit N] [--after DATE] [--before DATE]`
-- `wacli messages search <query> [--chat JID] [--from JID] [--has-media] [--type text|image|video|audio|document]`
+- `wacli messages list [--chat JID] [--sender JID] [--from-me|--from-them] [--asc] [--limit N] [--after DATE] [--before DATE] [--forwarded]`
+- `wacli messages search <query> [--chat JID] [--from JID] [--has-media] [--type text|image|video|audio|document] [--forwarded]`
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
 - `wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID]`
@@ -156,6 +177,8 @@ pnpm wacli presence paused --to 1234567890
 - `wacli presence paused --to PHONE_OR_JID`
 - `wacli doctor [--connect]`
 - `wacli version`
+- `wacli completion bash|zsh|fish|powershell [--no-descriptions]`
+- `wacli help [command]`
 
 `RECIPIENT` for `send text/file` accepts a JID, phone number, or synced contact/group/chat name. If a name is ambiguous, interactive terminals prompt; scripts can pass `--pick N`.
 

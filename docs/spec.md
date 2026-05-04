@@ -1,5 +1,7 @@
 # wacli specification (plan)
 
+Read when: changing the CLI contract, store model, sync model, or v1 behavior boundaries.
+
 This document defines the v1 plan for `wacli`: a WhatsApp CLI that syncs messages locally, supports fast search, sending, and contact/group management. Implementation will use `whatsmeow` under the hood.
 
 ## Goals

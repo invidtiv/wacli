@@ -1,5 +1,7 @@
 # Release
 
+Read when: cutting a release, debugging release artifacts, or updating the Homebrew tap handoff.
+
 ## GitHub Release Artifacts
 
 `wacli` uses GoReleaser (`.goreleaser.yaml` for macOS, `.goreleaser-linux-windows.yaml` for linux/windows) and the GitHub Actions workflow `.github/workflows/release.yml`.

@@ -64,6 +64,8 @@
 
 ### Docs
 
+- README: add a documentation index and complete command quick reference.
+- Docs: add an overview plus one page for every top-level CLI subcommand.
 - Maintainers: add CODEOWNERS and maintainer contact info.
 - Agents: add AGENTS.md for AI agent guidance. (#190 — thanks @adhitShet)
 
