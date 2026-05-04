@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/steipete/wacli/internal/fsutil"
@@ -59,6 +60,7 @@ type Options struct {
 
 type App struct {
 	opts Options
+	waMu sync.Mutex
 	wa   WAClient
 	db   *store.DB
 }
@@ -82,6 +84,8 @@ func New(opts Options) (*App, error) {
 }
 
 func (a *App) OpenWA() error {
+	a.waMu.Lock()
+	defer a.waMu.Unlock()
 	if a.wa != nil {
 		return nil
 	}
@@ -98,8 +102,11 @@ func (a *App) OpenWA() error {
 }
 
 func (a *App) Close() {
-	if a.wa != nil {
-		a.wa.Close()
+	a.waMu.Lock()
+	waClient := a.wa
+	a.waMu.Unlock()
+	if waClient != nil {
+		waClient.Close()
 	}
 	if a.db != nil {
 		_ = a.db.Close()
@@ -116,7 +123,11 @@ func (a *App) EnsureAuthed() error {
 	return fmt.Errorf("not authenticated; run `wacli auth`")
 }
 
-func (a *App) WA() WAClient        { return a.wa }
+func (a *App) WA() WAClient {
+	a.waMu.Lock()
+	defer a.waMu.Unlock()
+	return a.wa
+}
 func (a *App) DB() *store.DB       { return a.db }
 func (a *App) StoreDir() string    { return a.opts.StoreDir }
 func (a *App) Version() string     { return a.opts.Version }
