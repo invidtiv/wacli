@@ -289,6 +289,23 @@ func (c *Client) GetAllContacts(ctx context.Context) (map[types.JID]types.Contac
 	return cli.Store.Contacts.GetAllContacts(ctx)
 }
 
+func (c *Client) ResolveLIDToPN(ctx context.Context, jid types.JID) types.JID {
+	if jid.Server != types.HiddenUserServer {
+		return jid
+	}
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil || cli.Store == nil || cli.Store.LIDs == nil {
+		return jid
+	}
+	pn, err := cli.Store.LIDs.GetPNForLID(ctx, jid.ToNonAD())
+	if err != nil || pn.IsEmpty() {
+		return jid
+	}
+	return pn
+}
+
 func BestContactName(info types.ContactInfo) string {
 	if !info.Found {
 		return ""

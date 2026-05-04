@@ -114,6 +114,7 @@ func chatKind(chat types.JID) string {
 }
 
 func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error {
+	pm.Chat = a.canonicalStoreJID(ctx, pm.Chat)
 	chatJID := canonicalJIDString(pm.Chat)
 	chatName := a.wa.ResolveChatName(ctx, pm.Chat, pm.PushName)
 	if err := a.db.UpsertChat(chatJID, chatKind(pm.Chat), chatName, pm.Timestamp); err != nil {
@@ -144,7 +145,7 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 	senderJID := pm.SenderJID
 	if pm.SenderJID != "" {
 		if jid, err := types.ParseJID(pm.SenderJID); err == nil {
-			contactJID := canonicalJID(jid)
+			contactJID := a.canonicalStoreJID(ctx, jid)
 			senderJID = contactJID.String()
 			if info, err := a.wa.GetContact(ctx, contactJID); err == nil {
 				if name := wa.BestContactName(info); name != "" {

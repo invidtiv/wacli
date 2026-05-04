@@ -30,6 +30,7 @@ type fakeWA struct {
 
 	contacts map[types.JID]types.ContactInfo
 	groups   map[types.JID]*types.GroupInfo
+	lids     map[types.JID]types.JID
 
 	onDemandHistory func(lastKnown types.MessageInfo, count int) *events.HistorySync
 }
@@ -40,6 +41,7 @@ func newFakeWA() *fakeWA {
 		handlers:      map[uint32]func(interface{}){},
 		contacts:      map[types.JID]types.ContactInfo{},
 		groups:        map[types.JID]*types.GroupInfo{},
+		lids:          map[types.JID]types.JID{},
 		nextHandlerID: 1,
 	}
 }
@@ -123,6 +125,16 @@ func (f *fakeWA) ResolveChatName(ctx context.Context, chat types.JID, pushName s
 		}
 	}
 	return chat.String()
+}
+
+func (f *fakeWA) ResolveLIDToPN(ctx context.Context, jid types.JID) types.JID {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if pn, ok := f.lids[jid.ToNonAD()]; ok {
+		pn.Device = jid.Device
+		return pn
+	}
+	return jid
 }
 
 func (f *fakeWA) GetContact(ctx context.Context, jid types.JID) (types.ContactInfo, error) {

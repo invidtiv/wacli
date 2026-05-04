@@ -172,6 +172,45 @@ func TestStoreParsedMessageNormalizesDefaultUserADJIDs(t *testing.T) {
 	}
 }
 
+func TestStoreParsedMessageResolvesLIDChatAndSender(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	lid := types.JID{User: "999123456789", Server: types.HiddenUserServer}
+	pn := types.JID{User: "15551234567", Server: types.DefaultUserServer}
+	f.lids[lid.ToNonAD()] = pn
+	f.contacts[pn.ToNonAD()] = types.ContactInfo{Found: true, FullName: "Alice"}
+
+	err := a.storeParsedMessage(context.Background(), wa.ParsedMessage{
+		Chat:      lid,
+		ID:        "m-lid",
+		SenderJID: lid.String(),
+		Timestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		Text:      "hello",
+	})
+	if err != nil {
+		t.Fatalf("storeParsedMessage: %v", err)
+	}
+
+	msg, err := a.db.GetMessage(pn.String(), "m-lid")
+	if err != nil {
+		t.Fatalf("GetMessage resolved chat: %v", err)
+	}
+	if msg.ChatJID != pn.String() {
+		t.Fatalf("ChatJID = %q, want %q", msg.ChatJID, pn.String())
+	}
+	if msg.SenderJID != pn.String() {
+		t.Fatalf("SenderJID = %q, want %q", msg.SenderJID, pn.String())
+	}
+	if msg.ChatName != "Alice" {
+		t.Fatalf("ChatName = %q, want Alice", msg.ChatName)
+	}
+	if _, err := a.db.GetMessage(lid.String(), "m-lid"); err == nil {
+		t.Fatalf("message was also stored under unresolved LID chat")
+	}
+}
+
 func TestSyncStoresDisplayText(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeWA()
