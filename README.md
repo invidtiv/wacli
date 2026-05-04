@@ -20,7 +20,7 @@ Core implementation is in place. See `docs/spec.md` for design notes.
 - **Offline message store**: local SQLite store with FTS5 search when available and LIKE fallback.
 - **Message tools**: list/search/show/context with chat, sender, direction, time, order, and media-type filters.
 - **Sending**: send text, quoted replies, and image/video/audio/document files with captions, MIME override, and custom display filenames.
-- **Media**: download synced message media on demand, or download in the background during auth/sync.
+- **Media**: download synced message media on demand, or download in the background during auth/sync; send-file uploads and downloads are capped at 100 MiB.
 - **Contacts/chats/groups**: search/show contacts, local aliases/tags, list/show chats, refresh/list/info/rename groups, manage participants, invite links, join, and leave; left groups are hidden after leave.
 - **Presence**: send typing/paused indicators.
 - **Diagnostics + safety**: `doctor`, read-only mode, store locks with lock-owner reporting, lock waiting, owner-only database permissions, panic recovery, reconnect bounds, and bounded media queue backpressure.

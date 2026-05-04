@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -25,6 +27,21 @@ func TestDetectSendFileMIMEAddsOpusCodecForOgg(t *testing.T) {
 				t.Fatalf("mime = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestReadSendFileDataRejectsOversizedFile(t *testing.T) {
+	path := t.TempDir() + "/huge.bin"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.Truncate(path, maxSendFileSize+1); err != nil {
+		t.Fatalf("Truncate: %v", err)
+	}
+
+	_, err := readSendFileData(path)
+	if err == nil || !strings.Contains(err.Error(), "file too large") {
+		t.Fatalf("expected file too large error, got %v", err)
 	}
 }
 

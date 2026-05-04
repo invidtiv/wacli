@@ -180,6 +180,9 @@ WhatsApp Web history is best-effort. If you want to try fetching *older* message
 - `wacli send file --to PHONE_OR_JID --file PATH [--caption TEXT] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID]`
 - `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID]`
 
+Send-file uploads and media downloads are capped at 100 MiB to avoid reading
+or writing unexpectedly large payloads in one command.
+
 ### Contacts (read + local management)
 
 - `wacli contacts search <query>`

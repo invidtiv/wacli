@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"mime"
 	"net/http"
 	"os"
@@ -17,11 +18,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const maxSendFileSize = 100 * 1024 * 1024
+
 func sendFile(ctx context.Context, a interface {
 	WA() app.WAClient
 	DB() *store.DB
 }, to types.JID, filePath, filename, caption, mimeOverride, replyTo, replyToSender string) (string, map[string]string, error) {
-	data, err := os.ReadFile(filePath)
+	data, err := readSendFileData(filePath)
 	if err != nil {
 		return "", nil, err
 	}
@@ -141,6 +144,17 @@ func sendFile(ctx context.Context, a interface {
 		"mime_type": mimeType,
 		"media":     mediaType,
 	}, nil
+}
+
+func readSendFileData(filePath string) ([]byte, error) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if info.Size() > maxSendFileSize {
+		return nil, fmt.Errorf("file too large (%d bytes); maximum send file size is %d bytes", info.Size(), maxSendFileSize)
+	}
+	return os.ReadFile(filePath)
 }
 
 func attachSendFileReplyContext(msg *waProto.Message, info *waProto.ContextInfo) {
