@@ -176,7 +176,7 @@ WhatsApp Web history is best-effort. If you want to try fetching *older* message
 ### Send
 
 - `wacli send text --to PHONE_OR_JID --message TEXT`
-- `wacli send file --to PHONE_OR_JID --file PATH [--caption TEXT] [--mime TYPE]`
+- `wacli send file --to PHONE_OR_JID --file PATH [--caption TEXT] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID]`
 - `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID]`
 
 ### Contacts (read + local management)

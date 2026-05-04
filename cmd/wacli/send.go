@@ -116,21 +116,12 @@ type sendTextApp interface {
 }
 
 func sendTextMessage(ctx context.Context, a sendTextApp, to types.JID, text, replyTo, replyToSender string) (types.MessageID, error) {
-	replyTo = strings.TrimSpace(replyTo)
-	if replyTo == "" {
-		return a.WA().SendText(ctx, to, text)
-	}
-
-	sender, err := resolveReplySender(a.DB(), to, replyTo, replyToSender)
+	info, err := buildReplyContextInfo(a.DB(), to, replyTo, replyToSender)
 	if err != nil {
 		return "", err
 	}
-
-	stanzaID := replyTo
-	info := &waProto.ContextInfo{StanzaID: proto.String(stanzaID)}
-	if !sender.IsEmpty() {
-		participant := sender.String()
-		info.Participant = proto.String(participant)
+	if info == nil {
+		return a.WA().SendText(ctx, to, text)
 	}
 
 	return a.WA().SendProtoMessage(ctx, to, &waProto.Message{
@@ -139,6 +130,26 @@ func sendTextMessage(ctx context.Context, a sendTextApp, to types.JID, text, rep
 			ContextInfo: info,
 		},
 	})
+}
+
+func buildReplyContextInfo(db *store.DB, chat types.JID, replyTo, replyToSender string) (*waProto.ContextInfo, error) {
+	replyTo = strings.TrimSpace(replyTo)
+	if replyTo == "" {
+		return nil, nil
+	}
+
+	sender, err := resolveReplySender(db, chat, replyTo, replyToSender)
+	if err != nil {
+		return nil, err
+	}
+
+	stanzaID := replyTo
+	info := &waProto.ContextInfo{StanzaID: proto.String(stanzaID)}
+	if !sender.IsEmpty() {
+		participant := sender.String()
+		info.Participant = proto.String(participant)
+	}
+	return info, nil
 }
 
 func resolveReplySender(db *store.DB, chat types.JID, replyTo, override string) (types.JID, error) {

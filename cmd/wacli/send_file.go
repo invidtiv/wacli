@@ -20,7 +20,7 @@ import (
 func sendFile(ctx context.Context, a interface {
 	WA() app.WAClient
 	DB() *store.DB
-}, to types.JID, filePath, filename, caption, mimeOverride string) (string, map[string]string, error) {
+}, to types.JID, filePath, filename, caption, mimeOverride, replyTo, replyToSender string) (string, map[string]string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", nil, err
@@ -53,6 +53,10 @@ func sendFile(ctx context.Context, a interface {
 
 	now := time.Now().UTC()
 	msg := &waProto.Message{}
+	replyContext, err := buildReplyContextInfo(a.DB(), to, replyTo, replyToSender)
+	if err != nil {
+		return "", nil, err
+	}
 
 	switch mediaType {
 	case "image":
@@ -102,6 +106,7 @@ func sendFile(ctx context.Context, a interface {
 			Title:         proto.String(name),
 		}
 	}
+	attachSendFileReplyContext(msg, replyContext)
 
 	id, err := a.WA().SendProtoMessage(ctx, to, msg)
 	if err != nil {
@@ -136,6 +141,22 @@ func sendFile(ctx context.Context, a interface {
 		"mime_type": mimeType,
 		"media":     mediaType,
 	}, nil
+}
+
+func attachSendFileReplyContext(msg *waProto.Message, info *waProto.ContextInfo) {
+	if info == nil {
+		return
+	}
+	switch {
+	case msg.GetImageMessage() != nil:
+		msg.ImageMessage.ContextInfo = info
+	case msg.GetVideoMessage() != nil:
+		msg.VideoMessage.ContextInfo = info
+	case msg.GetAudioMessage() != nil:
+		msg.AudioMessage.ContextInfo = info
+	case msg.GetDocumentMessage() != nil:
+		msg.DocumentMessage.ContextInfo = info
+	}
 }
 
 func chatKindFromJID(j types.JID) string {

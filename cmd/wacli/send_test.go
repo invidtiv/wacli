@@ -81,3 +81,27 @@ func TestResolveReplySenderAllowsDirectMessageWithoutSender(t *testing.T) {
 		t.Fatalf("expected empty sender for direct reply, got %q", got.String())
 	}
 }
+
+func TestBuildReplyContextInfo(t *testing.T) {
+	db := openSendTestDB(t)
+	chat := types.JID{User: "12345", Server: types.GroupServer}
+
+	got, err := buildReplyContextInfo(db, chat, "quoted", "+15551234567")
+	if err != nil {
+		t.Fatalf("buildReplyContextInfo: %v", err)
+	}
+	if got.GetStanzaID() != "quoted" {
+		t.Fatalf("stanza ID = %q, want quoted", got.GetStanzaID())
+	}
+	if got.GetParticipant() != "15551234567@s.whatsapp.net" {
+		t.Fatalf("participant = %q", got.GetParticipant())
+	}
+
+	got, err = buildReplyContextInfo(db, chat, "", "+15551234567")
+	if err != nil {
+		t.Fatalf("empty buildReplyContextInfo: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("empty reply context = %v, want nil", got)
+	}
+}
