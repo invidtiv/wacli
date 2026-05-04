@@ -1,9 +1,12 @@
 package wa
 
 import (
+	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -63,6 +66,28 @@ func TestParseUserOrJID(t *testing.T) {
 			}
 			if j.Server != tt.wantServer || j.User != tt.wantUser {
 				t.Fatalf("unexpected jid: %+v", j)
+			}
+		})
+	}
+}
+
+func TestQRChannelEventError(t *testing.T) {
+	cases := []struct {
+		name string
+		evt  whatsmeow.QRChannelItem
+		want string
+	}{
+		{name: "timeout", evt: whatsmeow.QRChannelTimeout, want: "QR code timed out"},
+		{name: "client outdated", evt: whatsmeow.QRChannelClientOutdated, want: "WhatsApp client outdated"},
+		{name: "multidevice disabled", evt: whatsmeow.QRChannelScannedWithoutMultidevice, want: "multi-device is not enabled"},
+		{name: "unexpected state", evt: whatsmeow.QRChannelErrUnexpectedEvent, want: "unexpected QR pairing state"},
+		{name: "pair error", evt: whatsmeow.QRChannelItem{Event: whatsmeow.QRChannelEventError, Error: errors.New("bad code")}, want: "bad code"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			err := qrChannelEventError(tt.evt)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want substring %q", err, tt.want)
 			}
 		})
 	}

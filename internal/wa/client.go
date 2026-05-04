@@ -94,7 +94,10 @@ func (c *Client) Connect(ctx context.Context, opts ConnectOptions) error {
 
 	var qrChan <-chan whatsmeow.QRChannelItem
 	if !authed {
-		ch, _ := cli.GetQRChannel(ctx)
+		ch, err := cli.GetQRChannel(ctx)
+		if err != nil {
+			return fmt.Errorf("get QR channel: %w", err)
+		}
 		qrChan = ch
 	}
 
@@ -115,21 +118,41 @@ func (c *Client) Connect(ctx context.Context, opts ConnectOptions) error {
 			if !ok {
 				return fmt.Errorf("QR channel closed")
 			}
-			switch evt.Event {
-			case "code":
+			switch {
+			case evt.Event == whatsmeow.QRChannelEventCode:
 				if opts.OnQRCode != nil {
 					opts.OnQRCode(evt.Code)
 				} else {
 					qrterminal.GenerateHalfBlock(evt.Code, qrterminal.M, os.Stdout)
 				}
-			case "success":
+			case evt == whatsmeow.QRChannelSuccess:
 				return nil
-			case "timeout":
-				return fmt.Errorf("QR code timed out")
-			case "error":
-				return fmt.Errorf("QR error")
+			default:
+				if err := qrChannelEventError(evt); err != nil {
+					return err
+				}
 			}
 		}
+	}
+}
+
+func qrChannelEventError(evt whatsmeow.QRChannelItem) error {
+	switch {
+	case evt == whatsmeow.QRChannelTimeout:
+		return fmt.Errorf("QR code timed out; run `wacli auth` again to get a new code")
+	case evt == whatsmeow.QRChannelClientOutdated:
+		return fmt.Errorf("WhatsApp client outdated; update wacli and try again")
+	case evt == whatsmeow.QRChannelScannedWithoutMultidevice:
+		return fmt.Errorf("QR scanned, but multi-device is not enabled on the phone")
+	case evt == whatsmeow.QRChannelErrUnexpectedEvent:
+		return fmt.Errorf("unexpected QR pairing state; run `wacli auth` again")
+	case evt.Event == whatsmeow.QRChannelEventError:
+		if evt.Error != nil {
+			return fmt.Errorf("QR pairing failed: %w", evt.Error)
+		}
+		return fmt.Errorf("QR pairing failed")
+	default:
+		return nil
 	}
 }
 
