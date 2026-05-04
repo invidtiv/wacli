@@ -12,6 +12,7 @@ import (
 	"github.com/steipete/wacli/internal/wa"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/proto/waCommon"
+	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
@@ -61,6 +62,35 @@ func TestLiveSyncWarnsOnEncryptedReactionDecryptFailure(t *testing.T) {
 	}
 	if msg.DisplayText != "Reacted to message" {
 		t.Fatalf("expected fallback reaction display text, got %q", msg.DisplayText)
+	}
+}
+
+func TestLiveSyncIgnoresHistorySyncProtocolMessage(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	syncType := waE2E.HistorySyncType_INITIAL_BOOTSTRAP
+	evt := &events.Message{
+		Message: &waProto.Message{
+			ProtocolMessage: &waProto.ProtocolMessage{
+				HistorySyncNotification: &waE2E.HistorySyncNotification{SyncType: &syncType},
+			},
+		},
+	}
+
+	var messagesStored atomic.Int64
+	a.handleLiveSyncMessage(context.Background(), SyncOptions{}, evt, &messagesStored, func(string, string) {})
+
+	if messagesStored.Load() != 0 {
+		t.Fatalf("history sync protocol message stored count = %d, want 0", messagesStored.Load())
+	}
+	count, err := a.db.CountMessages()
+	if err != nil {
+		t.Fatalf("CountMessages: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("db messages = %d, want 0", count)
 	}
 }
 

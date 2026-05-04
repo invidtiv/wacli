@@ -11,6 +11,8 @@ import (
 	"github.com/steipete/wacli/internal/wa"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -36,6 +38,10 @@ type fakeWA struct {
 	decryptedReaction  *waProto.ReactionMessage
 	decryptReactionErr error
 	onDemandHistory    func(lastKnown types.MessageInfo, count int) *events.HistorySync
+	onDemandEvent      func(lastKnown types.MessageInfo, count int) interface{}
+	downloadHistory    func(notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error)
+
+	manualHistorySyncCalls []bool
 }
 
 func newFakeWA() *fakeWA {
@@ -270,6 +276,22 @@ func (f *fakeWA) DecryptReaction(ctx context.Context, reaction *events.Message) 
 	return nil, fmt.Errorf("not supported")
 }
 
+func (f *fakeWA) SetManualHistorySyncDownload(enabled bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.manualHistorySyncCalls = append(f.manualHistorySyncCalls, enabled)
+}
+
+func (f *fakeWA) DownloadHistorySync(ctx context.Context, notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error) {
+	f.mu.Lock()
+	cb := f.downloadHistory
+	f.mu.Unlock()
+	if cb == nil {
+		return nil, fmt.Errorf("not supported")
+	}
+	return cb(notif)
+}
+
 func (f *fakeWA) ParseWebMessage(chatJID types.JID, webMsg *waWeb.WebMessageInfo) (*events.Message, error) {
 	if chatJID.IsEmpty() {
 		parsed, err := types.ParseJID(webMsg.GetKey().GetRemoteJID())
@@ -324,9 +346,12 @@ func (f *fakeWA) DownloadMediaToFile(ctx context.Context, directPath string, enc
 
 func (f *fakeWA) RequestHistorySyncOnDemand(ctx context.Context, lastKnown types.MessageInfo, count int) (types.MessageID, error) {
 	f.mu.Lock()
+	eventCB := f.onDemandEvent
 	cb := f.onDemandHistory
 	f.mu.Unlock()
-	if cb != nil {
+	if eventCB != nil {
+		f.emit(eventCB(lastKnown, count))
+	} else if cb != nil {
 		f.emit(cb(lastKnown, count))
 	}
 	return types.MessageID("req"), nil

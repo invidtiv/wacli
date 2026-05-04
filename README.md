@@ -184,6 +184,7 @@ Important notes:
 - This is **best-effort**: WhatsApp may not return full history.
 - Your **primary device must be online**.
 - Requests are **per chat** (DM or group). `wacli` uses the *oldest locally stored message* in that chat as the anchor.
+- Backfill skips automatic initial history-sync blob downloads and only processes on-demand responses, which keeps memory use bounded on small Linux/ARM devices.
 - Recommended `--count` is `50` per request; maximum is `500`.
 - Maximum `--requests` per run is `100`.
 

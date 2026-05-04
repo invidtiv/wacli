@@ -32,6 +32,7 @@
 - Chats: resolve mapped historical `@lid` chat rows in `chats list/show` output. (#31, #89 — thanks @bhaskoro-muthohar and @alexph-dev)
 - Groups: hide groups after `groups leave`, mark missing joined groups as left during refresh, and show them again if a later refresh reports membership. (#125, #129 — thanks @SeifBenayed and @ImLukeF)
 - History: cap on-demand backfill at 500 messages per request and 100 requests per run.
+- History: skip automatic initial history-sync blob downloads during on-demand backfill to avoid OOM on constrained Linux/ARM devices. (#84 — thanks @jyothepro)
 - Messages: normalize device-specific `@s.whatsapp.net` JIDs before storing chats, contacts, and senders.
 - Messages: include mapped `@lid` rows when listing, searching, showing, or contextualizing by phone-number chat JID.
 - Messages: read stored sender names back from SQLite and resolve blank historical `@lid` senders at display time.

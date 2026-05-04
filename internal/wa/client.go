@@ -11,6 +11,8 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -263,6 +265,24 @@ func (c *Client) ParseWebMessage(chatJID types.JID, webMsg *waWeb.WebMessageInfo
 		return nil, fmt.Errorf("whatsapp client is not initialized")
 	}
 	return cli.ParseWebMessage(chatJID, webMsg)
+}
+
+func (c *Client) SetManualHistorySyncDownload(enabled bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.client != nil {
+		c.client.ManualHistorySyncDownload = enabled
+	}
+}
+
+func (c *Client) DownloadHistorySync(ctx context.Context, notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error) {
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil {
+		return nil, fmt.Errorf("whatsapp client is not initialized")
+	}
+	return cli.DownloadHistorySync(ctx, notif, false)
 }
 
 func (c *Client) RequestHistorySyncOnDemand(ctx context.Context, lastKnown types.MessageInfo, count int) (types.MessageID, error) {

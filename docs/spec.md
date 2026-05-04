@@ -165,6 +165,7 @@ WhatsApp Web history is best-effort. If you want to try fetching *older* message
 
 - `wacli history backfill --chat JID [--count 50] [--requests N]`
 - Backfill caps: `--count <= 500`, `--requests <= 100`.
+- During backfill, automatic initial history-sync blob downloads are disabled; only on-demand history-sync notifications are downloaded and stored.
 
 ### Messages
 
