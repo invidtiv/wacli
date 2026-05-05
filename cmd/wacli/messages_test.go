@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/steipete/wacli/internal/store"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -194,6 +195,55 @@ func TestMessagesExportCommandExposesDateFilters(t *testing.T) {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("expected --%s flag", name)
 		}
+	}
+}
+
+func TestMessagesMutationCommandsExposeSafetyFlags(t *testing.T) {
+	for _, cmd := range []*cobra.Command{
+		newMessagesDeleteCmd(&rootFlags{}),
+		newMessagesEditCmd(&rootFlags{}),
+	} {
+		for _, name := range []string{"chat", "id", "post-send-wait"} {
+			if cmd.Flags().Lookup(name) == nil {
+				t.Fatalf("%s missing --%s", cmd.Name(), name)
+			}
+		}
+	}
+	if newMessagesEditCmd(&rootFlags{}).Flags().Lookup("message") == nil {
+		t.Fatalf("edit missing --message")
+	}
+}
+
+func TestMessagesDeleteRejectsReadOnlyBeforeOpeningStore(t *testing.T) {
+	cmd := newMessagesDeleteCmd(&rootFlags{readOnly: true})
+	cmd.SetArgs([]string{"--chat", "+15551234567", "--id", "mid"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "read-only mode") {
+		t.Fatalf("error = %v, want read-only", err)
+	}
+}
+
+func TestMessagesEditValidation(t *testing.T) {
+	now := time.Date(2024, 1, 1, 12, 30, 0, 0, time.UTC)
+	msg := store.Message{
+		MsgID:     "mid",
+		Timestamp: now.Add(-time.Minute),
+		FromMe:    true,
+		Text:      "old",
+	}
+	if err := validateMessageCanEdit(msg, now); err != nil {
+		t.Fatalf("validateMessageCanEdit: %v", err)
+	}
+
+	msg.FromMe = false
+	if err := validateMessageCanEdit(msg, now); err == nil || !strings.Contains(err.Error(), "not sent by me") {
+		t.Fatalf("from-them error = %v", err)
+	}
+
+	msg.FromMe = true
+	msg.Timestamp = now.Add(-21 * time.Minute)
+	if err := validateMessageCanEdit(msg, now); err == nil || !strings.Contains(err.Error(), "edit window") {
+		t.Fatalf("old message error = %v", err)
 	}
 }
 

@@ -4,11 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/steipete/wacli/internal/app"
 	"github.com/steipete/wacli/internal/out"
 	"github.com/steipete/wacli/internal/store"
+	"github.com/steipete/wacli/internal/wa"
+	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/types"
 )
 
 func newMessagesCmd(flags *rootFlags) *cobra.Command {
@@ -22,6 +27,8 @@ func newMessagesCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newMessagesShowCmd(flags))
 	cmd.AddCommand(newMessagesContextCmd(flags))
 	cmd.AddCommand(newMessagesExportCmd(flags))
+	cmd.AddCommand(newMessagesDeleteCmd(flags))
+	cmd.AddCommand(newMessagesEditCmd(flags))
 	return cmd
 }
 
@@ -457,4 +464,191 @@ func newMessagesExportCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&beforeStr, "before", "", "only messages before time (RFC3339 or YYYY-MM-DD)")
 	cmd.Flags().StringVar(&output, "output", "", "write JSON export to file instead of stdout")
 	return cmd
+}
+
+func newMessagesDeleteCmd(flags *rootFlags) *cobra.Command {
+	var chat string
+	var id string
+	postSendWait := postSendRetryReceiptWait
+
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete one of your sent messages for everyone",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(chat) == "" || strings.TrimSpace(id) == "" {
+				return fmt.Errorf("--chat and --id are required")
+			}
+			if err := flags.requireWritable(); err != nil {
+				return err
+			}
+
+			ctx, cancel := withTimeout(context.Background(), flags)
+			defer cancel()
+
+			a, lk, err := newApp(ctx, flags, true, false)
+			if err != nil {
+				return err
+			}
+			defer closeApp(a, lk)
+
+			if err := a.EnsureAuthed(); err != nil {
+				return err
+			}
+			msg, chatJID, err := loadMessageMutationTarget(ctx, a, chat, id)
+			if err != nil {
+				return err
+			}
+			if err := validateMessageCanRevoke(msg); err != nil {
+				return err
+			}
+			if err := a.Connect(ctx, false, nil); err != nil {
+				return err
+			}
+			if err := warnRapidSendIfNeeded(a.StoreDir(), time.Now().UTC(), os.Stderr); err != nil {
+				return err
+			}
+			sentID, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (types.MessageID, error) {
+				return a.WA().RevokeMessage(ctx, chatJID, types.MessageID(msg.MsgID))
+			})
+			if err != nil {
+				return err
+			}
+			if err := a.DB().MarkMessageRevoked(msg.ChatJID, msg.MsgID); err != nil {
+				return fmt.Errorf("store deleted message state: %w", err)
+			}
+
+			waitForPostSendRetryReceipts(ctx, postSendWait)
+
+			if flags.asJSON {
+				return out.WriteJSON(os.Stdout, map[string]any{
+					"revoked": true,
+					"to":      chatJID.String(),
+					"id":      sentID,
+					"target":  msg.MsgID,
+				})
+			}
+			fmt.Fprintf(os.Stdout, "Deleted message %s in %s (id %s)\n", msg.MsgID, chatJID.String(), sentID)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&chat, "chat", "", "chat JID, phone number, or contact/group/chat name")
+	cmd.Flags().StringVar(&id, "id", "", "message ID to delete")
+	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after delete so retry receipts can be handled (0 disables)")
+	return cmd
+}
+
+func newMessagesEditCmd(flags *rootFlags) *cobra.Command {
+	var chat string
+	var id string
+	var message string
+	postSendWait := postSendRetryReceiptWait
+
+	cmd := &cobra.Command{
+		Use:   "edit",
+		Short: "Edit one of your recent sent text messages",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(chat) == "" || strings.TrimSpace(id) == "" || strings.TrimSpace(message) == "" {
+				return fmt.Errorf("--chat, --id, and --message are required")
+			}
+			if err := flags.requireWritable(); err != nil {
+				return err
+			}
+
+			ctx, cancel := withTimeout(context.Background(), flags)
+			defer cancel()
+
+			a, lk, err := newApp(ctx, flags, true, false)
+			if err != nil {
+				return err
+			}
+			defer closeApp(a, lk)
+
+			if err := a.EnsureAuthed(); err != nil {
+				return err
+			}
+			msg, chatJID, err := loadMessageMutationTarget(ctx, a, chat, id)
+			if err != nil {
+				return err
+			}
+			if err := validateMessageCanEdit(msg, time.Now().UTC()); err != nil {
+				return err
+			}
+			if err := a.Connect(ctx, false, nil); err != nil {
+				return err
+			}
+			if err := warnRapidSendIfNeeded(a.StoreDir(), time.Now().UTC(), os.Stderr); err != nil {
+				return err
+			}
+			sentID, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (types.MessageID, error) {
+				return a.WA().EditMessage(ctx, chatJID, types.MessageID(msg.MsgID), message)
+			})
+			if err != nil {
+				return err
+			}
+			if err := a.DB().UpdateMessageText(msg.ChatJID, msg.MsgID, message); err != nil {
+				return fmt.Errorf("store edited message text: %w", err)
+			}
+
+			waitForPostSendRetryReceipts(ctx, postSendWait)
+
+			if flags.asJSON {
+				return out.WriteJSON(os.Stdout, map[string]any{
+					"edited":  true,
+					"to":      chatJID.String(),
+					"id":      sentID,
+					"target":  msg.MsgID,
+					"message": message,
+				})
+			}
+			fmt.Fprintf(os.Stdout, "Edited message %s in %s (id %s)\n", msg.MsgID, chatJID.String(), sentID)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&chat, "chat", "", "chat JID, phone number, or contact/group/chat name")
+	cmd.Flags().StringVar(&id, "id", "", "message ID to edit")
+	cmd.Flags().StringVar(&message, "message", "", "new message text")
+	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after edit so retry receipts can be handled (0 disables)")
+	return cmd
+}
+
+func loadMessageMutationTarget(ctx context.Context, a *app.App, chat, id string) (store.Message, types.JID, error) {
+	chatJIDs, err := messageChatJIDFilter(ctx, a, chat)
+	if err != nil {
+		return store.Message{}, types.JID{}, err
+	}
+	msg, err := getMessageByChatFilter(a.DB(), chatJIDs, id)
+	if err != nil {
+		return store.Message{}, types.JID{}, err
+	}
+	chatJID, err := wa.ParseUserOrJID(msg.ChatJID)
+	if err != nil {
+		return store.Message{}, types.JID{}, fmt.Errorf("stored chat JID is invalid: %w", err)
+	}
+	return msg, chatJID, nil
+}
+
+func validateMessageCanRevoke(msg store.Message) error {
+	if msg.Revoked {
+		return fmt.Errorf("message %s is already deleted", msg.MsgID)
+	}
+	if !msg.FromMe {
+		return fmt.Errorf("message %s was not sent by me", msg.MsgID)
+	}
+	return nil
+}
+
+func validateMessageCanEdit(msg store.Message, now time.Time) error {
+	if err := validateMessageCanRevoke(msg); err != nil {
+		return err
+	}
+	if strings.TrimSpace(msg.MediaType) != "" {
+		return fmt.Errorf("only text messages can be edited")
+	}
+	if strings.TrimSpace(msg.Text) == "" && strings.TrimSpace(msg.DisplayText) == "" {
+		return fmt.Errorf("only text messages can be edited")
+	}
+	if !msg.Timestamp.IsZero() && now.Sub(msg.Timestamp) > whatsmeow.EditWindow {
+		return fmt.Errorf("message %s is older than WhatsApp's %s edit window", msg.MsgID, whatsmeow.EditWindow)
+	}
+	return nil
 }

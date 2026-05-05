@@ -109,6 +109,9 @@ func writeMessageShow(dst io.Writer, m store.Message) error {
 			fmt.Fprintf(dst, "Starred at: %s\n", m.StarredAt.Local().Format(time.RFC3339))
 		}
 	}
+	if m.Revoked {
+		fmt.Fprintln(dst, "Deleted: yes")
+	}
 	fmt.Fprintf(dst, "\n%s\n", messageText(m))
 	if raw := messageRawText(m); raw != "" {
 		fmt.Fprintf(dst, "\nRaw text:\n%s\n", raw)
@@ -163,6 +166,9 @@ func messageFromDetail(m store.Message) string {
 }
 
 func messageText(m store.Message) string {
+	if m.Revoked {
+		return store.DeletedMessageDisplayText
+	}
 	if text := strings.TrimSpace(m.DisplayText); text != "" {
 		return text
 	}

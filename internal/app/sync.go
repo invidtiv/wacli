@@ -343,6 +343,9 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 	}
 
 	displayText := a.buildDisplayText(ctx, pm)
+	if pm.Revoked {
+		displayText = store.DeletedMessageDisplayText
+	}
 
 	if err := a.db.UpsertMessage(store.UpsertMessageParams{
 		ChatJID:         chatJID,
@@ -367,6 +370,7 @@ func (a *App) storeParsedMessage(ctx context.Context, pm wa.ParsedMessage) error
 		FileSHA256:      fileSha,
 		FileEncSHA256:   fileEncSha,
 		FileLength:      fileLen,
+		Revoked:         pm.Revoked,
 	}); err != nil {
 		return err
 	}

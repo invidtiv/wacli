@@ -458,3 +458,87 @@ func TestCountMessagesAndOldestMessageInfo(t *testing.T) {
 		t.Fatalf("CountMessages expected 2, got %d (err=%v)", n, err)
 	}
 }
+
+func TestMessageRevokedTombstoneIsHiddenFromListAndSearch(t *testing.T) {
+	db := openTestDB(t)
+
+	chat := "chat@s.whatsapp.net"
+	now := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	if err := db.UpsertChat(chat, "dm", "Alice", now); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	for _, row := range []UpsertMessageParams{
+		{ChatJID: chat, MsgID: "keep", SenderJID: chat, Timestamp: now, Text: "visible needle"},
+		{ChatJID: chat, MsgID: "delete", SenderName: "me", Timestamp: now.Add(time.Second), FromMe: true, Text: "secret needle", DisplayText: "secret needle"},
+	} {
+		if err := db.UpsertMessage(row); err != nil {
+			t.Fatalf("UpsertMessage %s: %v", row.MsgID, err)
+		}
+	}
+	if err := db.MarkMessageRevoked(chat, "delete"); err != nil {
+		t.Fatalf("MarkMessageRevoked: %v", err)
+	}
+
+	deleted, err := db.GetMessage(chat, "delete")
+	if err != nil {
+		t.Fatalf("GetMessage deleted: %v", err)
+	}
+	if !deleted.Revoked {
+		t.Fatalf("deleted.Revoked = false")
+	}
+	if deleted.Text != "" || deleted.DisplayText != DeletedMessageDisplayText {
+		t.Fatalf("deleted text=%q display=%q", deleted.Text, deleted.DisplayText)
+	}
+
+	msgs, err := db.ListMessages(ListMessagesParams{ChatJID: chat, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListMessages: %v", err)
+	}
+	if got := messageIDs(msgs); got != "keep" {
+		t.Fatalf("listed ids = %s", got)
+	}
+	found, err := db.SearchMessages(SearchMessagesParams{Query: "secret", ChatJID: chat, Limit: 10})
+	if err != nil {
+		t.Fatalf("SearchMessages: %v", err)
+	}
+	if len(found) != 0 {
+		t.Fatalf("revoked message appeared in search: %+v", found)
+	}
+}
+
+func TestUpdateMessageTextClearsMediaState(t *testing.T) {
+	db := openTestDB(t)
+
+	chat := "chat@s.whatsapp.net"
+	now := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	if err := db.UpsertChat(chat, "dm", "Alice", now); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	if err := db.UpsertMessage(UpsertMessageParams{
+		ChatJID:      chat,
+		MsgID:        "mid",
+		SenderName:   "me",
+		Timestamp:    now,
+		FromMe:       true,
+		Text:         "old",
+		DisplayText:  "old",
+		MediaType:    "image",
+		MediaCaption: "caption",
+		Filename:     "pic.jpg",
+	}); err != nil {
+		t.Fatalf("UpsertMessage: %v", err)
+	}
+	if err := db.UpdateMessageText(chat, "mid", "new"); err != nil {
+		t.Fatalf("UpdateMessageText: %v", err)
+	}
+	msg, err := db.GetMessage(chat, "mid")
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	if msg.Text != "new" || msg.DisplayText != "new" {
+		t.Fatalf("text=%q display=%q", msg.Text, msg.DisplayText)
+	}
+	if msg.MediaType != "" || msg.MediaCaption != "" || msg.Filename != "" {
+		t.Fatalf("media state not cleared: %+v", msg)
+	}
+}

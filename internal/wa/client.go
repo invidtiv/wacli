@@ -18,6 +18,7 @@ import (
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
+	"google.golang.org/protobuf/proto"
 )
 
 type Options struct {
@@ -233,6 +234,35 @@ func (c *Client) SendReaction(ctx context.Context, chat, sender types.JID, targe
 		return "", fmt.Errorf("not connected")
 	}
 	resp, err := cli.SendMessage(ctx, chat, cli.BuildReaction(chat, sender, targetID, reaction))
+	if err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func (c *Client) RevokeMessage(ctx context.Context, chat types.JID, targetID types.MessageID) (types.MessageID, error) {
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil || !cli.IsConnected() {
+		return "", fmt.Errorf("not connected")
+	}
+	resp, err := cli.SendMessage(ctx, chat, cli.BuildRevoke(chat, types.EmptyJID, targetID))
+	if err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func (c *Client) EditMessage(ctx context.Context, chat types.JID, targetID types.MessageID, text string) (types.MessageID, error) {
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil || !cli.IsConnected() {
+		return "", fmt.Errorf("not connected")
+	}
+	msg := &waE2E.Message{Conversation: proto.String(text)}
+	resp, err := cli.SendMessage(ctx, chat, cli.BuildEdit(chat, targetID, msg))
 	if err != nil {
 		return "", err
 	}

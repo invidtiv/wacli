@@ -2,7 +2,7 @@
 
 Read when: listing, searching, exporting, showing, or inspecting local message context.
 
-`wacli messages` reads from the local store. It does not connect to WhatsApp unless a display path needs session-backed LID mapping.
+Most `wacli messages` commands read from the local store. `messages edit` and `messages delete` are remote WhatsApp mutations and require an authenticated, writable store.
 
 ## Commands
 
@@ -13,6 +13,8 @@ wacli messages starred [--chat JID] [--limit N] [--after DATE] [--before DATE] [
 wacli messages export [--chat JID] [--limit N] [--after DATE] [--before DATE] [--output PATH]
 wacli messages show --chat JID --id MSG_ID
 wacli messages context --chat JID --id MSG_ID [--before N] [--after N]
+wacli messages edit --chat JID --id MSG_ID --message TEXT [--post-send-wait 2s]
+wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]
 ```
 
 ## Search
@@ -36,6 +38,13 @@ wacli messages context --chat JID --id MSG_ID [--before N] [--after N]
 - Use `--after` and `--before` to bound the exported time window.
 - Use `--output` to write the JSON export to a file.
 
+## Edit and Delete
+
+- `messages edit` updates one of your own recent sent text messages. WhatsApp only accepts edits inside its current edit window.
+- `messages delete` revokes one of your own sent messages for everyone.
+- Both commands look up the target in the local store first, reject messages not sent by you, and honor `--read-only`/`WACLI_READONLY`.
+- Deleted messages are kept as local tombstones for direct `messages show`, but are hidden from normal list/search/starred/export results.
+
 ## LID mapping
 
 When a phone-number chat JID maps to a stored `@lid` row, list/search/show/context include the mapped rows so historical LID splits do not hide messages.
@@ -51,4 +60,6 @@ wacli messages search "invoice" --starred
 wacli messages export --chat 1234567890@s.whatsapp.net --after 2024-01-01 --before 2024-02-01 --output messages.json
 wacli messages show --chat 1234567890@s.whatsapp.net --id ABC123
 wacli messages context --chat 1234567890@s.whatsapp.net --id ABC123 --before 3 --after 3
+wacli messages edit --chat 1234567890@s.whatsapp.net --id ABC123 --message "updated text"
+wacli messages delete --chat 1234567890@s.whatsapp.net --id ABC123
 ```

@@ -32,6 +32,7 @@ func TestOpenCreatesExpectedSchema(t *testing.T) {
 		"reaction_emoji",
 		"local_path",
 		"downloaded_at",
+		"revoked",
 	} {
 		if !cols[want] {
 			t.Fatalf("expected messages column %q to exist", want)

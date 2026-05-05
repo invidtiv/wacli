@@ -38,6 +38,7 @@ type ParsedMessage struct {
 	ForwardingScore uint32
 	StarredKnown    bool
 	Starred         bool
+	Revoked         bool
 }
 
 func ParseLiveMessage(evt *events.Message) ParsedMessage {
@@ -93,6 +94,9 @@ func extractWAProto(m *waProto.Message, pm *ParsedMessage) {
 		return
 	}
 
+	if extractProtocolMutation(m, pm) {
+		return
+	}
 	extractReaction(m, pm)
 	extractPlainText(m, pm)
 	extractMedia(m, pm)
@@ -107,6 +111,38 @@ func extractWAProto(m *waProto.Message, pm *ParsedMessage) {
 		}
 		pm.ForwardingScore = ctx.GetForwardingScore()
 		pm.IsForwarded = ctx.GetIsForwarded() || pm.ForwardingScore > 0
+	}
+}
+
+func extractProtocolMutation(m *waProto.Message, pm *ParsedMessage) bool {
+	protocol := m.GetProtocolMessage()
+	if protocol == nil {
+		return false
+	}
+	switch protocol.GetType() {
+	case waProto.ProtocolMessage_REVOKE:
+		key := protocol.GetKey()
+		if key == nil {
+			return false
+		}
+		if id := strings.TrimSpace(key.GetID()); id != "" {
+			pm.ID = id
+		}
+		if remote := strings.TrimSpace(key.GetRemoteJID()); remote != "" {
+			if chat, err := types.ParseJID(remote); err == nil {
+				pm.Chat = chat
+			}
+		}
+		if participant := strings.TrimSpace(key.GetParticipant()); participant != "" {
+			pm.SenderJID = participant
+		}
+		pm.FromMe = key.GetFromMe()
+		pm.Text = ""
+		pm.Media = nil
+		pm.Revoked = true
+		return true
+	default:
+		return false
 	}
 }
 

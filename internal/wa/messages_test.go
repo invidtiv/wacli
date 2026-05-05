@@ -424,6 +424,36 @@ func TestParseTemplateButtonReplyMessage(t *testing.T) {
 	}
 }
 
+func TestParseLiveMessageRevokeTargetsOriginalID(t *testing.T) {
+	chat := types.NewJID("15551234567", types.DefaultUserServer)
+	ev := &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     chat,
+				Sender:   chat,
+				IsFromMe: true,
+			},
+			ID:        "revoke-event",
+			Timestamp: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		},
+		Message: &waProto.Message{
+			ProtocolMessage: &waProto.ProtocolMessage{
+				Type: waProto.ProtocolMessage_REVOKE.Enum(),
+				Key: &waProto.MessageKey{
+					ID:        proto.String("original"),
+					FromMe:    proto.Bool(true),
+					RemoteJID: proto.String(chat.String()),
+				},
+			},
+		},
+	}
+
+	pm := ParseLiveMessage(ev)
+	if !pm.Revoked || pm.ID != "original" || pm.Chat != chat || !pm.FromMe {
+		t.Fatalf("unexpected revoked parse: %+v", pm)
+	}
+}
+
 func TestDisplayTextForProtoBusinessTypes(t *testing.T) {
 	tests := []struct {
 		name string

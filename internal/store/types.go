@@ -69,6 +69,7 @@ type Message struct {
 	DownloadedAt    time.Time
 	Starred         bool
 	StarredAt       time.Time
+	Revoked         bool
 	Snippet         string
 	rowID           int64
 }
@@ -121,6 +122,8 @@ func nullIfEmpty(s string) interface{} {
 }
 
 func (d *DB) HasFTS() bool { return d.ftsEnabled }
+
+const DeletedMessageDisplayText = "This message was deleted"
 
 func IsNotFound(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)

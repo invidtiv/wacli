@@ -277,6 +277,14 @@ func (f *fakeWA) SendReaction(ctx context.Context, chat, sender types.JID, targe
 	return types.MessageID("reactionid"), nil
 }
 
+func (f *fakeWA) RevokeMessage(ctx context.Context, chat types.JID, targetID types.MessageID) (types.MessageID, error) {
+	return types.MessageID("revokeid"), nil
+}
+
+func (f *fakeWA) EditMessage(ctx context.Context, chat types.JID, targetID types.MessageID, text string) (types.MessageID, error) {
+	return types.MessageID("editid"), nil
+}
+
 func (f *fakeWA) Upload(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 	return whatsmeow.UploadResponse{}, nil
 }

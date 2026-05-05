@@ -177,6 +177,8 @@ WhatsApp Web history is best-effort. If you want to try fetching *older* message
 - `wacli messages export [--chat JID] [--limit N] [--before TS] [--after TS] [--output PATH]`
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
+- `wacli messages edit --chat JID --id MSG_ID --message TEXT [--post-send-wait 2s]`
+- `wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]`
 
 ### Send
 

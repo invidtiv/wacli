@@ -21,7 +21,7 @@ Full docs site: <https://wacli.sh>.
 - [Overview](docs/overview.md): store model, global flags, common flow, command index.
 - [Auth](docs/auth.md): `auth`, `auth status`, `auth logout`.
 - [Sync](docs/sync.md): `sync --once`, `sync --follow`, refresh, media download.
-- [Messages](docs/messages.md): `messages list/search/starred/show/context`.
+- [Messages](docs/messages.md): `messages list/search/starred/show/context/export/edit/delete`.
 - [Send](docs/send.md): `send text/file/sticker/voice/react`, recipient resolution, replies.
 - [Media](docs/media.md): `media download`.
 - [Contacts](docs/contacts.md): `contacts search/show/refresh`, aliases, tags.
@@ -31,6 +31,7 @@ Full docs site: <https://wacli.sh>.
 - [Presence](docs/presence.md): `presence typing/paused`.
 - [Profile](docs/profile.md): `profile set-picture`.
 - [Doctor](docs/doctor.md): `doctor [--connect]`.
+- [Docs](docs/docs.md): print the hosted documentation URL.
 - [Version](docs/version.md): `version`, `--version`.
 - [Completion](docs/completion.md): generated shell completions.
 - [Help](docs/help.md): `help`, per-command `--help`.
@@ -106,6 +107,10 @@ pnpm wacli messages context --chat 1234567890@s.whatsapp.net --id <message-id>
 # Export messages to JSON with a time window
 pnpm wacli messages export --chat 1234567890@s.whatsapp.net --after 2024-01-01 --before 2024-02-01 --output messages.json
 
+# Edit or delete your own sent messages
+pnpm wacli messages edit --chat 1234567890@s.whatsapp.net --id <message-id> --message "updated text"
+pnpm wacli messages delete --chat 1234567890@s.whatsapp.net --id <message-id>
+
 # Backfill older messages for a chat (best-effort; requires your primary device online)
 pnpm wacli history backfill --chat 1234567890@s.whatsapp.net --requests 10 --count 50
 
@@ -171,6 +176,8 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli messages export [--chat JID] [--limit N] [--after DATE] [--before DATE] [--output PATH]`
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
+- `wacli messages edit --chat JID --id MSG_ID --message TEXT [--post-send-wait 2s]`
+- `wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]`
 - `wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send sticker --to RECIPIENT --file PATH [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
@@ -197,6 +204,7 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli presence paused --to PHONE_OR_JID`
 - `wacli profile set-picture IMAGE`
 - `wacli doctor [--connect]`
+- `wacli docs`
 - `wacli version`
 - `wacli completion bash|zsh|fish|powershell [--no-descriptions]`
 - `wacli help [command]`

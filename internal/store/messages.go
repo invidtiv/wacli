@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -29,10 +30,11 @@ type UpsertMessageParams struct {
 	FileSHA256      []byte
 	FileEncSHA256   []byte
 	FileLength      uint64
+	Revoked         bool
 }
 
 func messageSelectColumns(snippet string) string {
-	return fmt.Sprintf(`m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), m.is_forwarded, m.forwarding_score, COALESCE(m.reaction_to_id,''), COALESCE(m.reaction_emoji,''), COALESCE(m.media_type,''), COALESCE(m.media_caption,''), COALESCE(m.filename,''), COALESCE(m.mime_type,''), COALESCE(m.direct_path,''), COALESCE(m.local_path,''), COALESCE(m.downloaded_at,0), CASE WHEN s.msg_id IS NULL THEN 0 ELSE 1 END, COALESCE(s.starred_at,0), %s`, snippetSQL(snippet))
+	return fmt.Sprintf(`m.rowid, m.chat_jid, COALESCE(c.name,''), m.msg_id, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,''), m.ts, m.from_me, COALESCE(m.text,''), COALESCE(m.display_text,''), m.is_forwarded, m.forwarding_score, COALESCE(m.reaction_to_id,''), COALESCE(m.reaction_emoji,''), COALESCE(m.media_type,''), COALESCE(m.media_caption,''), COALESCE(m.filename,''), COALESCE(m.mime_type,''), COALESCE(m.direct_path,''), COALESCE(m.local_path,''), COALESCE(m.downloaded_at,0), CASE WHEN s.msg_id IS NULL THEN 0 ELSE 1 END, COALESCE(s.starred_at,0), m.revoked, %s`, snippetSQL(snippet))
 }
 
 func snippetSQL(snippet string) string {
@@ -43,40 +45,112 @@ func snippetSQL(snippet string) string {
 }
 
 func (d *DB) UpsertMessage(p UpsertMessageParams) error {
+	if p.Revoked {
+		p.Text = ""
+		p.DisplayText = DeletedMessageDisplayText
+		p.MediaType = ""
+		p.MediaCaption = ""
+		p.Filename = ""
+		p.MimeType = ""
+		p.DirectPath = ""
+		p.MediaKey = nil
+		p.FileSHA256 = nil
+		p.FileEncSHA256 = nil
+		p.FileLength = 0
+	}
 	_, err := d.sql.Exec(`
 		INSERT INTO messages(
 			chat_jid, chat_name, msg_id, sender_jid, sender_name, ts, from_me, text, display_text,
 			is_forwarded, forwarding_score, reaction_to_id, reaction_emoji,
 			media_type, media_caption, filename, mime_type, direct_path,
-			media_key, file_sha256, file_enc_sha256, file_length
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			media_key, file_sha256, file_enc_sha256, file_length, revoked
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(chat_jid, msg_id) DO UPDATE SET
 			chat_name=COALESCE(NULLIF(excluded.chat_name,''), messages.chat_name),
 			sender_jid=excluded.sender_jid,
 			sender_name=COALESCE(NULLIF(excluded.sender_name,''), messages.sender_name),
 			ts=excluded.ts,
 			from_me=excluded.from_me,
-			text=excluded.text,
-			display_text=CASE WHEN excluded.display_text IS NOT NULL AND excluded.display_text != '' THEN excluded.display_text ELSE messages.display_text END,
+			text=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE excluded.text END,
+			display_text=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN ? WHEN excluded.display_text IS NOT NULL AND excluded.display_text != '' THEN excluded.display_text ELSE messages.display_text END,
 			is_forwarded=excluded.is_forwarded,
 			forwarding_score=excluded.forwarding_score,
 			reaction_to_id=COALESCE(NULLIF(excluded.reaction_to_id,''), messages.reaction_to_id),
 			reaction_emoji=COALESCE(NULLIF(excluded.reaction_emoji,''), messages.reaction_emoji),
-			media_type=excluded.media_type,
-			media_caption=excluded.media_caption,
-			filename=COALESCE(NULLIF(excluded.filename,''), messages.filename),
-			mime_type=COALESCE(NULLIF(excluded.mime_type,''), messages.mime_type),
-			direct_path=COALESCE(NULLIF(excluded.direct_path,''), messages.direct_path),
-			media_key=CASE WHEN excluded.media_key IS NOT NULL AND length(excluded.media_key)>0 THEN excluded.media_key ELSE messages.media_key END,
-			file_sha256=CASE WHEN excluded.file_sha256 IS NOT NULL AND length(excluded.file_sha256)>0 THEN excluded.file_sha256 ELSE messages.file_sha256 END,
-			file_enc_sha256=CASE WHEN excluded.file_enc_sha256 IS NOT NULL AND length(excluded.file_enc_sha256)>0 THEN excluded.file_enc_sha256 ELSE messages.file_enc_sha256 END,
-			file_length=CASE WHEN excluded.file_length>0 THEN excluded.file_length ELSE messages.file_length END
+			media_type=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE excluded.media_type END,
+			media_caption=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE excluded.media_caption END,
+			filename=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE COALESCE(NULLIF(excluded.filename,''), messages.filename) END,
+			mime_type=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE COALESCE(NULLIF(excluded.mime_type,''), messages.mime_type) END,
+			direct_path=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE COALESCE(NULLIF(excluded.direct_path,''), messages.direct_path) END,
+			media_key=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL WHEN excluded.media_key IS NOT NULL AND length(excluded.media_key)>0 THEN excluded.media_key ELSE messages.media_key END,
+			file_sha256=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL WHEN excluded.file_sha256 IS NOT NULL AND length(excluded.file_sha256)>0 THEN excluded.file_sha256 ELSE messages.file_sha256 END,
+			file_enc_sha256=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL WHEN excluded.file_enc_sha256 IS NOT NULL AND length(excluded.file_enc_sha256)>0 THEN excluded.file_enc_sha256 ELSE messages.file_enc_sha256 END,
+			file_length=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL WHEN excluded.file_length>0 THEN excluded.file_length ELSE messages.file_length END,
+			local_path=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE messages.local_path END,
+			downloaded_at=CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN NULL ELSE messages.downloaded_at END,
+			revoked=CASE WHEN excluded.revoked != 0 THEN 1 ELSE messages.revoked END
 	`, p.ChatJID, nullIfEmpty(p.ChatName), p.MsgID, nullIfEmpty(p.SenderJID), nullIfEmpty(p.SenderName), unix(p.Timestamp), boolToInt(p.FromMe), nullIfEmpty(p.Text), nullIfEmpty(p.DisplayText),
 		boolToInt(p.IsForwarded), int64(p.ForwardingScore), nullIfEmpty(p.ReactionToID), nullIfEmpty(p.ReactionEmoji),
 		nullIfEmpty(p.MediaType), nullIfEmpty(p.MediaCaption), nullIfEmpty(p.Filename), nullIfEmpty(p.MimeType), nullIfEmpty(p.DirectPath),
-		p.MediaKey, p.FileSHA256, p.FileEncSHA256, int64(p.FileLength),
+		p.MediaKey, p.FileSHA256, p.FileEncSHA256, int64(p.FileLength), boolToInt(p.Revoked), DeletedMessageDisplayText,
 	)
 	return err
+}
+
+func (d *DB) MarkMessageRevoked(chatJID, msgID string) error {
+	res, err := d.sql.Exec(`
+		UPDATE messages
+		SET revoked = 1,
+		    text = NULL,
+		    display_text = ?,
+		    media_type = NULL,
+		    media_caption = NULL,
+		    filename = NULL,
+		    mime_type = NULL,
+		    direct_path = NULL,
+		    media_key = NULL,
+		    file_sha256 = NULL,
+		    file_enc_sha256 = NULL,
+		    file_length = NULL,
+		    local_path = NULL,
+		    downloaded_at = NULL
+		WHERE chat_jid = ? AND msg_id = ?
+	`, DeletedMessageDisplayText, strings.TrimSpace(chatJID), strings.TrimSpace(msgID))
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (d *DB) UpdateMessageText(chatJID, msgID, text string) error {
+	res, err := d.sql.Exec(`
+		UPDATE messages
+		SET text = ?,
+		    display_text = ?,
+		    media_type = NULL,
+		    media_caption = NULL,
+		    filename = NULL,
+		    mime_type = NULL,
+		    direct_path = NULL,
+		    media_key = NULL,
+		    file_sha256 = NULL,
+		    file_enc_sha256 = NULL,
+		    file_length = NULL,
+		    local_path = NULL,
+		    downloaded_at = NULL,
+		    revoked = 0
+		WHERE chat_jid = ? AND msg_id = ?
+	`, nullIfEmpty(text), nullIfEmpty(text), strings.TrimSpace(chatJID), strings.TrimSpace(msgID))
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 type ListMessagesParams struct {
@@ -101,7 +175,7 @@ func (d *DB) ListMessages(p ListMessagesParams) ([]Message, error) {
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
 		LEFT JOIN starred s ON s.chat_jid = m.chat_jid AND s.msg_id = m.msg_id
-		WHERE 1=1`
+		WHERE m.revoked = 0`
 	var args []interface{}
 	query, args = appendStringFilter(query, args, "m.chat_jid", p.ChatJID, p.ChatJIDs)
 	if p.After != nil {
@@ -186,7 +260,8 @@ func (d *DB) GetMessage(chatJID, msgID string) (Message, error) {
 	var downloadedAt int64
 	var starred int
 	var starredAt int64
-	if err := row.Scan(&m.rowID, &m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &m.SenderName, &ts, &fromMe, &m.Text, &m.DisplayText, &forwarded, &forwardingScore, &m.ReactionToID, &m.ReactionEmoji, &m.MediaType, &m.MediaCaption, &m.Filename, &m.MimeType, &m.DirectPath, &m.LocalPath, &downloadedAt, &starred, &starredAt, &m.Snippet); err != nil {
+	var revoked int
+	if err := row.Scan(&m.rowID, &m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &m.SenderName, &ts, &fromMe, &m.Text, &m.DisplayText, &forwarded, &forwardingScore, &m.ReactionToID, &m.ReactionEmoji, &m.MediaType, &m.MediaCaption, &m.Filename, &m.MimeType, &m.DirectPath, &m.LocalPath, &downloadedAt, &starred, &starredAt, &revoked, &m.Snippet); err != nil {
 		return Message{}, err
 	}
 	m.Timestamp = fromUnix(ts)
@@ -196,6 +271,7 @@ func (d *DB) GetMessage(chatJID, msgID string) (Message, error) {
 	m.DownloadedAt = fromUnix(downloadedAt)
 	m.Starred = starred != 0
 	m.StarredAt = fromUnix(starredAt)
+	m.Revoked = revoked != 0
 	return m, nil
 }
 
@@ -248,7 +324,7 @@ func (d *DB) MessageContext(chatJID, msgID string, before, after int) ([]Message
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
 		LEFT JOIN starred s ON s.chat_jid = m.chat_jid AND s.msg_id = m.msg_id
-		WHERE m.chat_jid = ? AND (m.ts < ? OR (m.ts = ? AND m.rowid < ?))
+		WHERE m.chat_jid = ? AND m.revoked = 0 AND (m.ts < ? OR (m.ts = ? AND m.rowid < ?))
 		ORDER BY m.ts DESC, m.rowid DESC
 		LIMIT ?
 	`, chatJID, unix(target.Timestamp), unix(target.Timestamp), target.rowID, before)
@@ -261,7 +337,7 @@ func (d *DB) MessageContext(chatJID, msgID string, before, after int) ([]Message
 		FROM messages m
 		LEFT JOIN chats c ON c.jid = m.chat_jid
 		LEFT JOIN starred s ON s.chat_jid = m.chat_jid AND s.msg_id = m.msg_id
-		WHERE m.chat_jid = ? AND (m.ts > ? OR (m.ts = ? AND m.rowid > ?))
+		WHERE m.chat_jid = ? AND m.revoked = 0 AND (m.ts > ? OR (m.ts = ? AND m.rowid > ?))
 		ORDER BY m.ts ASC, m.rowid ASC
 		LIMIT ?
 	`, chatJID, unix(target.Timestamp), unix(target.Timestamp), target.rowID, after)
@@ -298,7 +374,8 @@ func (d *DB) scanMessages(query string, args ...interface{}) ([]Message, error) 
 		var downloadedAt int64
 		var starred int
 		var starredAt int64
-		if err := rows.Scan(&m.rowID, &m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &m.SenderName, &ts, &fromMe, &m.Text, &m.DisplayText, &forwarded, &forwardingScore, &m.ReactionToID, &m.ReactionEmoji, &m.MediaType, &m.MediaCaption, &m.Filename, &m.MimeType, &m.DirectPath, &m.LocalPath, &downloadedAt, &starred, &starredAt, &m.Snippet); err != nil {
+		var revoked int
+		if err := rows.Scan(&m.rowID, &m.ChatJID, &m.ChatName, &m.MsgID, &m.SenderJID, &m.SenderName, &ts, &fromMe, &m.Text, &m.DisplayText, &forwarded, &forwardingScore, &m.ReactionToID, &m.ReactionEmoji, &m.MediaType, &m.MediaCaption, &m.Filename, &m.MimeType, &m.DirectPath, &m.LocalPath, &downloadedAt, &starred, &starredAt, &revoked, &m.Snippet); err != nil {
 			return nil, err
 		}
 		m.Timestamp = fromUnix(ts)
@@ -308,6 +385,7 @@ func (d *DB) scanMessages(query string, args ...interface{}) ([]Message, error) 
 		m.DownloadedAt = fromUnix(downloadedAt)
 		m.Starred = starred != 0
 		m.StarredAt = fromUnix(starredAt)
+		m.Revoked = revoked != 0
 		out = append(out, m)
 	}
 	return out, rows.Err()

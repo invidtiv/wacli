@@ -21,6 +21,7 @@ var schemaMigrations = []migration{
 	{version: 5, name: "messages forwarded columns", up: migrateMessagesForwardedColumns},
 	{version: 6, name: "messages reaction columns", up: migrateMessagesReactionColumns},
 	{version: 7, name: "starred messages", up: migrateStarredMessages},
+	{version: 8, name: "messages revoked column", up: migrateMessagesRevokedColumn},
 }
 
 func (d *DB) ensureSchema() error {
@@ -156,6 +157,19 @@ func migrateStarredMessages(d *DB) error {
 	return nil
 }
 
+func migrateMessagesRevokedColumn(d *DB) error {
+	hasRevoked, err := d.tableHasColumn("messages", "revoked")
+	if err != nil {
+		return err
+	}
+	if !hasRevoked {
+		if _, err := d.sql.Exec(`ALTER TABLE messages ADD COLUMN revoked INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add messages.revoked column: %w", err)
+		}
+	}
+	return migrateMessagesFTS(d)
+}
+
 func migrateMessagesFTS(d *DB) error {
 	ftsExists, err := d.tableExists("messages_fts")
 	if err != nil {
@@ -199,7 +213,7 @@ func migrateMessagesFTS(d *DB) error {
 		DROP TRIGGER IF EXISTS messages_ad;
 		DROP TRIGGER IF EXISTS messages_au;
 
-		CREATE TRIGGER messages_ai AFTER INSERT ON messages BEGIN
+		CREATE TRIGGER messages_ai AFTER INSERT ON messages WHEN new.revoked = 0 BEGIN
 			INSERT INTO messages_fts(rowid, text, media_caption, filename, chat_name, sender_name, display_text)
 			VALUES (new.rowid, COALESCE(new.text,''), COALESCE(new.media_caption,''), COALESCE(new.filename,''), COALESCE(new.chat_name,''), COALESCE(new.sender_name,''), COALESCE(new.display_text,''));
 		END;
@@ -211,7 +225,8 @@ func migrateMessagesFTS(d *DB) error {
 		CREATE TRIGGER messages_au AFTER UPDATE ON messages BEGIN
 			DELETE FROM messages_fts WHERE rowid = old.rowid;
 			INSERT INTO messages_fts(rowid, text, media_caption, filename, chat_name, sender_name, display_text)
-			VALUES (new.rowid, COALESCE(new.text,''), COALESCE(new.media_caption,''), COALESCE(new.filename,''), COALESCE(new.chat_name,''), COALESCE(new.sender_name,''), COALESCE(new.display_text,''));
+			SELECT new.rowid, COALESCE(new.text,''), COALESCE(new.media_caption,''), COALESCE(new.filename,''), COALESCE(new.chat_name,''), COALESCE(new.sender_name,''), COALESCE(new.display_text,'')
+			WHERE new.revoked = 0;
 		END;
 	`); err != nil {
 		d.ftsEnabled = false
@@ -229,6 +244,7 @@ func migrateMessagesFTS(d *DB) error {
 			       COALESCE(sender_name,''),
 			       COALESCE(display_text,'')
 			FROM messages
+			WHERE revoked = 0
 		`); err != nil {
 			d.ftsEnabled = false
 			return nil

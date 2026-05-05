@@ -7,11 +7,13 @@
 - CLI: add `--read-only`/`WACLI_READONLY` to reject commands that write WhatsApp or the local store.
 - CLI: add `--lock-wait` to wait for transient store locks before failing write commands.
 - CLI: add `--events` to emit machine-readable NDJSON lifecycle events for `auth`, `sync`, and `history backfill`. (#204 — thanks @dinakars777 and @0xatrilla)
+- CLI: add `wacli docs` and root help text that point to the hosted docs at `https://wacli.sh`.
 - CLI: add `--full` to disable table truncation; piped output now keeps full message IDs. (#13 — thanks @rickhallett)
 - CLI: add `presence typing` and `presence paused` commands for WhatsApp composing indicators. (#76 — thanks @redemerco)
 - Diagnostics: show linked JID and local store counts in `auth status` and `doctor`. (#149 — thanks @draix)
 - Messages: add `messages list --sender`, `--from-me`, `--from-them`, and `--asc` filters. (#153 — thanks @draix)
 - Messages: track WhatsApp starred state and add `messages starred` plus `--starred` filters for list/search. (#17 — thanks @dan-dr)
+- Messages: add `messages edit` and `messages delete` for editing or revoking your own sent messages. (#80 — thanks @frapeti)
 - Messages: add `messages search --has-media`, `--type text`, case-insensitive media types, and validation for contradictory filters. (#128 — thanks @ImLukeF and @Mansehej)
 - Messages: add JSON export with `messages export --after` and `--before` filters.
 - Messages: extract searchable/display text from WhatsApp Business templates, buttons, interactive messages, and list replies. (#79 — thanks @terry-li-hm)
