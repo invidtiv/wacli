@@ -7,7 +7,7 @@ Read when: sending text, files, quoted replies, or reactions.
 ## Commands
 
 ```bash
-wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send text --to RECIPIENT --message TEXT [--pick N] [--mention USER] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send voice --to RECIPIENT --file PATH [--pick N] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]
@@ -25,6 +25,7 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 - `send text` fetches Open Graph metadata for the first `http://` or `https://` URL and sends it as a WhatsApp link preview.
 - Preview metadata fetches time out after 10 seconds and fall back to plain text.
 - Pass `--no-preview` to disable link-preview fetching.
+- Use repeatable `--mention USER` with a phone number or user JID to add WhatsApp mentions to `send text`.
 - `--reply-to` quotes a stored message ID.
 - For unsynced group replies, pass `--reply-to-sender`.
 - `send react` defaults to thumbs-up.
@@ -47,6 +48,7 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 ```bash
 wacli send text --to mom --message "landed"
 wacli send text --to "Family" --pick 2 --message "on my way"
+wacli send text --to "Family" --message "hey @15551234567" --mention +15551234567
 wacli send text --to 1234567890 --message "replying" --reply-to ABC123
 wacli send file --to 1234567890 --file ./pic.jpg --caption "hi"
 wacli send file --to 1234567890 --file /tmp/report --filename report.pdf

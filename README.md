@@ -4,7 +4,7 @@ WhatsApp CLI built on top of `whatsmeow`, focused on:
 
 - Best-effort local sync of message history + continuous capture
 - Fast offline search
-- Sending text, quoted replies, and files
+- Sending text, mentions, quoted replies, and files
 - Contact + group management
 - Scriptable JSON output
 
@@ -39,7 +39,7 @@ Core implementation is in place. Start with [docs/overview.md](docs/overview.md)
 - **Auth + sync**: `auth` shows QR login and bootstraps sync; `sync` is non-interactive, can run once or follow continuously, and can refresh contacts/groups.
 - **Offline message store**: local SQLite store with FTS5 search when available and LIKE fallback.
 - **Message tools**: list/search/show/context with chat, sender, direction, time, order, and media-type filters.
-- **Sending**: send text, quoted replies, and image/video/audio/document files with captions, MIME override, and custom display filenames. Sends keep a short retry-receipt grace window, and rapid repeated sends warn on stderr.
+- **Sending**: send text, mentions, quoted replies, and image/video/audio/document files with captions, MIME override, and custom display filenames. Sends keep a short retry-receipt grace window, and rapid repeated sends warn on stderr.
 - **Media**: download synced message media on demand, or download in the background during auth/sync; send-file uploads and downloads are capped at 100 MiB.
 - **Contacts/chats/groups**: search/show contacts, local aliases/tags, list/show chats, refresh/list/info/rename groups, manage participants, invite links, join, and leave; left groups are hidden after leave.
 - **Presence**: send typing/paused indicators.
@@ -111,6 +111,8 @@ pnpm wacli media download --chat 1234567890@s.whatsapp.net --id <message-id>
 pnpm wacli send text --to 1234567890 --message "hello"
 # Link previews are added automatically for the first http(s) URL; use --no-preview to skip.
 pnpm wacli send text --to 1234567890 --message "https://example.com" --no-preview
+# Mention one or more users in a group text.
+pnpm wacli send text --to "Family" --message "hey @15551234567" --mention +15551234567
 # Phone numbers can also be passed as +E164 or formatted input like "+1 (234) 567-8900"
 pnpm wacli send text --to mom --message "hello"
 pnpm wacli send text --to "Family" --pick 2 --message "hello"

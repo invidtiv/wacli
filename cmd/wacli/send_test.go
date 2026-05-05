@@ -212,6 +212,29 @@ func TestBuildReplyContextInfo(t *testing.T) {
 	}
 }
 
+func TestParseMentionedJIDs(t *testing.T) {
+	got, err := parseMentionedJIDs([]string{
+		" +1 (555) 123-4567 ",
+		"15551234567@s.whatsapp.net",
+		"15557654321@s.whatsapp.net",
+		"",
+	})
+	if err != nil {
+		t.Fatalf("parseMentionedJIDs: %v", err)
+	}
+	want := []string{"15551234567@s.whatsapp.net", "15557654321@s.whatsapp.net"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("mentions = %v, want %v", got, want)
+	}
+}
+
+func TestParseMentionedJIDsRejectsGroupJID(t *testing.T) {
+	_, err := parseMentionedJIDs([]string{"12345@g.us"})
+	if err == nil || !strings.Contains(err.Error(), "mentions must target a user") {
+		t.Fatalf("expected group mention rejection, got %v", err)
+	}
+}
+
 func TestSendTextCommandExposesNoPreviewFlag(t *testing.T) {
 	cmd := newSendTextCmd(&rootFlags{})
 	if cmd.Flags().Lookup("no-preview") == nil {
@@ -219,11 +242,18 @@ func TestSendTextCommandExposesNoPreviewFlag(t *testing.T) {
 	}
 }
 
+func TestSendTextCommandExposesMentionFlag(t *testing.T) {
+	cmd := newSendTextCmd(&rootFlags{})
+	if cmd.Flags().Lookup("mention") == nil {
+		t.Fatalf("missing --mention flag")
+	}
+}
+
 func TestBuildTextMessageUsesPlainConversationWithoutReplyOrPreview(t *testing.T) {
 	db := openSendTestDB(t)
 	chat := types.JID{User: "15551234567", Server: types.DefaultUserServer}
 
-	msg, plain, err := buildTextMessage(db, chat, "hello", "", "", nil)
+	msg, plain, err := buildTextMessage(db, chat, "hello", "", "", nil, nil)
 	if err != nil {
 		t.Fatalf("buildTextMessage: %v", err)
 	}
@@ -232,6 +262,51 @@ func TestBuildTextMessageUsesPlainConversationWithoutReplyOrPreview(t *testing.T
 	}
 	if msg != nil {
 		t.Fatalf("msg = %v, want nil", msg)
+	}
+}
+
+func TestBuildTextMessageAttachesMentions(t *testing.T) {
+	db := openSendTestDB(t)
+	chat := types.JID{User: "12345", Server: types.GroupServer}
+	mentions := []string{"15551234567@s.whatsapp.net", "15557654321@s.whatsapp.net"}
+
+	msg, plain, err := buildTextMessage(db, chat, "hey @15551234567", "", "", nil, mentions)
+	if err != nil {
+		t.Fatalf("buildTextMessage: %v", err)
+	}
+	if plain {
+		t.Fatalf("plain = true, want false")
+	}
+	ext := msg.GetExtendedTextMessage()
+	if ext.GetText() != "hey @15551234567" {
+		t.Fatalf("text = %q", ext.GetText())
+	}
+	got := ext.GetContextInfo().GetMentionedJID()
+	if strings.Join(got, ",") != strings.Join(mentions, ",") {
+		t.Fatalf("mentioned JIDs = %v, want %v", got, mentions)
+	}
+}
+
+func TestBuildTextMessageCombinesReplyAndMentions(t *testing.T) {
+	db := openSendTestDB(t)
+	chat := types.JID{User: "12345", Server: types.GroupServer}
+
+	msg, plain, err := buildTextMessage(db, chat, "replying @15551234567", "quoted", "+15557654321", nil, []string{"15551234567@s.whatsapp.net"})
+	if err != nil {
+		t.Fatalf("buildTextMessage: %v", err)
+	}
+	if plain {
+		t.Fatalf("plain = true, want false")
+	}
+	info := msg.GetExtendedTextMessage().GetContextInfo()
+	if info.GetStanzaID() != "quoted" {
+		t.Fatalf("stanza ID = %q, want quoted", info.GetStanzaID())
+	}
+	if info.GetParticipant() != "15557654321@s.whatsapp.net" {
+		t.Fatalf("participant = %q", info.GetParticipant())
+	}
+	if got := info.GetMentionedJID(); strings.Join(got, ",") != "15551234567@s.whatsapp.net" {
+		t.Fatalf("mentioned JIDs = %v", got)
 	}
 }
 
@@ -245,7 +320,7 @@ func TestBuildTextMessageAttachesLinkPreview(t *testing.T) {
 		Thumbnail:   []byte("jpeg"),
 	}
 
-	msg, plain, err := buildTextMessage(db, chat, "see https://example.com/post", "", "", preview)
+	msg, plain, err := buildTextMessage(db, chat, "see https://example.com/post", "", "", preview, nil)
 	if err != nil {
 		t.Fatalf("buildTextMessage: %v", err)
 	}

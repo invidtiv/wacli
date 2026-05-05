@@ -36,6 +36,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	var to string
 	var pick int
 	var message string
+	var mentions []string
 	var replyTo string
 	var replyToSender string
 	var noPreview bool
@@ -69,6 +70,10 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			mentionedJIDs, err := parseMentionedJIDs(mentions)
+			if err != nil {
+				return err
+			}
 			if err := a.Connect(ctx, false, nil); err != nil {
 				return err
 			}
@@ -78,7 +83,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 
 			preview := fetchLinkPreview(ctx, message, noPreview)
 			msgID, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (types.MessageID, error) {
-				return sendTextMessage(ctx, a, toJID, message, replyTo, replyToSender, preview)
+				return sendTextMessage(ctx, a, toJID, message, replyTo, replyToSender, preview, mentionedJIDs)
 			})
 			if err != nil {
 				return err
@@ -117,6 +122,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&to, "to", "", "recipient JID, phone number, or contact/group/chat name")
 	cmd.Flags().IntVar(&pick, "pick", 0, "when --to is ambiguous, pick the Nth match (1-indexed)")
 	cmd.Flags().StringVar(&message, "message", "", "message text")
+	cmd.Flags().StringArrayVar(&mentions, "mention", nil, "phone number or user JID to mention (repeatable)")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "message ID to quote/reply to")
 	cmd.Flags().StringVar(&replyToSender, "reply-to-sender", "", "sender JID of the quoted message (required for unsynced group replies)")
 	cmd.Flags().BoolVar(&noPreview, "no-preview", false, "disable automatic link previews for the first URL in text")
@@ -129,8 +135,8 @@ type sendTextApp interface {
 	DB() *store.DB
 }
 
-func sendTextMessage(ctx context.Context, a sendTextApp, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview) (types.MessageID, error) {
-	msg, plainText, err := buildTextMessage(a.DB(), to, text, replyTo, replyToSender, preview)
+func sendTextMessage(ctx context.Context, a sendTextApp, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview, mentionedJIDs []string) (types.MessageID, error) {
+	msg, plainText, err := buildTextMessage(a.DB(), to, text, replyTo, replyToSender, preview, mentionedJIDs)
 	if err != nil {
 		return "", err
 	}
@@ -157,8 +163,8 @@ func fetchLinkPreview(ctx context.Context, text string, disabled bool) *linkprev
 	return preview
 }
 
-func buildTextMessage(db *store.DB, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview) (*waProto.Message, bool, error) {
-	info, err := buildReplyContextInfo(db, to, replyTo, replyToSender)
+func buildTextMessage(db *store.DB, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview, mentionedJIDs []string) (*waProto.Message, bool, error) {
+	info, err := buildTextContextInfo(db, to, replyTo, replyToSender, mentionedJIDs)
 	if err != nil {
 		return nil, false, err
 	}
@@ -193,6 +199,21 @@ func attachLinkPreview(msg *waProto.ExtendedTextMessage, preview *linkpreview.Pr
 		return
 	}
 	msg.PreviewType = waProto.ExtendedTextMessage_NONE.Enum()
+}
+
+func buildTextContextInfo(db *store.DB, chat types.JID, replyTo, replyToSender string, mentionedJIDs []string) (*waProto.ContextInfo, error) {
+	info, err := buildReplyContextInfo(db, chat, replyTo, replyToSender)
+	if err != nil {
+		return nil, err
+	}
+	if len(mentionedJIDs) == 0 {
+		return info, nil
+	}
+	if info == nil {
+		info = &waProto.ContextInfo{}
+	}
+	info.MentionedJID = append([]string(nil), mentionedJIDs...)
+	return info, nil
 }
 
 func buildReplyContextInfo(db *store.DB, chat types.JID, replyTo, replyToSender string) (*waProto.ContextInfo, error) {
@@ -240,4 +261,29 @@ func resolveReplySender(db *store.DB, chat types.JID, replyTo, override string) 
 		return types.JID{}, fmt.Errorf("--reply-to-sender is required for unsynced group replies")
 	}
 	return types.JID{}, nil
+}
+
+func parseMentionedJIDs(values []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		jid, err := wa.ParseUserOrJID(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --mention: %w", err)
+		}
+		if jid.Server == types.GroupServer {
+			return nil, fmt.Errorf("invalid --mention %q: mentions must target a user phone number or user JID", value)
+		}
+		normalized := jid.String()
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out, nil
 }
