@@ -63,10 +63,21 @@ func execute(args []string) error {
 
 	rootCmd.SetArgs(args)
 	if err := rootCmd.Execute(); err != nil {
-		_ = out.WriteError(os.Stderr, flags.asJSON, err)
+		writeRootError(flags, err)
 		return err
 	}
 	return nil
+}
+
+func writeRootError(flags rootFlags, err error) {
+	if err == nil {
+		return
+	}
+	if flags.events {
+		_ = out.NewEventWriter(os.Stderr, true).Emit("error", map[string]any{"message": err.Error()})
+		return
+	}
+	_ = out.WriteError(os.Stderr, flags.asJSON, err)
 }
 
 func newApp(ctx context.Context, flags *rootFlags, needLock bool, allowUnauthed bool) (*app.App, *lock.Lock, error) {

@@ -72,6 +72,7 @@
 - Sync: decrypt encrypted reactions delivered through history sync before storing them. (#192 — thanks @matrixise)
 - Sync: resolve live `@lid` chat and sender JIDs to phone-number JIDs before storing messages. (#196 — thanks @mahidconseil)
 - Sync: warn when encrypted reaction messages cannot be decrypted instead of dropping the failure silently. (#192 — thanks @matrixise and @dinakars777)
+- CLI: emit command errors as NDJSON `error` events when `--events` is enabled.
 - Sync: keep `sync --once` idle timing focused on message/history events so connection chatter cannot hang exit. (#119 — thanks @jyothepro)
 - Sync: start `sync --once` idle timing after the `Connected` event. (#171 — thanks @fuleinist)
 - Sync: include event type, stack trace, and recovery count when logging recovered event-handler panics. (#181 — thanks @shaun0927)
