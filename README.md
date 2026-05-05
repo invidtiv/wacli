@@ -124,6 +124,8 @@ pnpm wacli send file --to 1234567890 --file ./pic.jpg --caption "hi"
 pnpm wacli send file --to 1234567890 --file ./pic.jpg --caption "replying" --reply-to <message-id>
 # Or override display name
 pnpm wacli send file --to 1234567890 --file /tmp/abc123 --filename report.pdf
+# Send an OGG/Opus audio file as a native WhatsApp voice note
+pnpm wacli send voice --to 1234567890 --file ./voice.ogg
 
 # React to a message (omit --reaction for the default; use --reaction "" to clear)
 pnpm wacli send react --to 1234567890 --id <message-id>
@@ -159,7 +161,8 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
 - `wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
-- `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send voice --to RECIPIENT --file PATH [--pick N] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]`
 - `wacli media download --chat JID --id MSG_ID [--output PATH]`
 - `wacli contacts search <query>`

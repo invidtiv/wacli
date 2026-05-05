@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/binary"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"google.golang.org/protobuf/proto"
 )
@@ -47,10 +52,123 @@ func TestReadSendFileDataRejectsOversizedFile(t *testing.T) {
 
 func TestSendFileCommandExposesReplyFlags(t *testing.T) {
 	cmd := newSendFileCmd(&rootFlags{})
-	for _, name := range []string{"reply-to", "reply-to-sender"} {
+	for _, name := range []string{"reply-to", "reply-to-sender", "ptt"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("missing --%s flag", name)
 		}
+	}
+}
+
+func TestSendVoiceCommandExposesSharedSendFlags(t *testing.T) {
+	cmd := newSendVoiceCmd(&rootFlags{})
+	for _, name := range []string{"to", "pick", "file", "mime", "reply-to", "reply-to-sender", "post-send-wait"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Fatalf("missing --%s flag", name)
+		}
+	}
+}
+
+func TestIsOggOpusMIME(t *testing.T) {
+	for _, tc := range []struct {
+		mime string
+		want bool
+	}{
+		{mime: "audio/ogg; codecs=opus", want: true},
+		{mime: "audio/ogg; codecs=\"opus\"", want: true},
+		{mime: "audio/ogg", want: false},
+		{mime: "audio/mpeg", want: false},
+	} {
+		if got := isOggOpusMIME(tc.mime); got != tc.want {
+			t.Fatalf("isOggOpusMIME(%q) = %v, want %v", tc.mime, got, tc.want)
+		}
+	}
+}
+
+func TestNewAudioMessageAttachesPTTMetadata(t *testing.T) {
+	up := whatsmeow.UploadResponse{
+		URL:           "https://upload",
+		DirectPath:    "/path",
+		MediaKey:      []byte("key"),
+		FileEncSHA256: []byte("enc"),
+		FileSHA256:    []byte("plain"),
+		FileLength:    123,
+	}
+	waveform := make([]byte, voiceWaveformSamples)
+	for i := range waveform {
+		waveform[i] = byte(i)
+	}
+
+	msg := newAudioMessage(up, "audio/ogg; codecs=opus", true, voiceNoteMetadata{seconds: 7, waveform: waveform})
+	if !msg.GetPTT() {
+		t.Fatalf("PTT = false, want true")
+	}
+	if msg.GetSeconds() != 7 {
+		t.Fatalf("seconds = %d, want 7", msg.GetSeconds())
+	}
+	if string(msg.GetWaveform()) != string(waveform) {
+		t.Fatalf("waveform not attached")
+	}
+}
+
+func TestWaveformFromPCM16LE(t *testing.T) {
+	data := make([]byte, voiceWaveformSamples*4)
+	for i := 0; i < voiceWaveformSamples*2; i++ {
+		sample := int16(100)
+		if i >= voiceWaveformSamples {
+			sample = 1000
+		}
+		binary.LittleEndian.PutUint16(data[i*2:i*2+2], uint16(sample))
+	}
+
+	waveform := waveformFromPCM16LE(data)
+	if len(waveform) != voiceWaveformSamples {
+		t.Fatalf("waveform length = %d, want %d", len(waveform), voiceWaveformSamples)
+	}
+	if waveform[0] == 0 {
+		t.Fatalf("first sample = 0, want non-zero")
+	}
+	if waveform[len(waveform)-1] != voiceWaveformMax {
+		t.Fatalf("last sample = %d, want %d", waveform[len(waveform)-1], voiceWaveformMax)
+	}
+}
+
+func TestProbeAudioMetadataWithFFmpeg(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		t.Skip("ffprobe not installed")
+	}
+
+	path := filepath.Join(t.TempDir(), "voice.ogg")
+	err := exec.Command("ffmpeg",
+		"-hide_banner",
+		"-loglevel", "error",
+		"-f", "lavfi",
+		"-i", "sine=frequency=440:duration=0.7",
+		"-c:a", "libopus",
+		path,
+	).Run()
+	if err != nil {
+		t.Skipf("ffmpeg could not generate Opus fixture: %v", err)
+	}
+
+	if seconds := probeAudioSeconds(context.Background(), path); seconds != 1 {
+		t.Fatalf("seconds = %d, want 1", seconds)
+	}
+	waveform := probeAudioWaveform(context.Background(), path)
+	if len(waveform) != voiceWaveformSamples {
+		t.Fatalf("waveform length = %d, want %d", len(waveform), voiceWaveformSamples)
+	}
+	hasNonZero := false
+	for _, sample := range waveform {
+		if sample > 0 {
+			hasNonZero = true
+			break
+		}
+	}
+	if !hasNonZero {
+		t.Fatalf("waveform is all zero")
 	}
 }
 

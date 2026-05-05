@@ -2,38 +2,62 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"mime"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/steipete/wacli/internal/app"
 	"github.com/steipete/wacli/internal/store"
 	"github.com/steipete/wacli/internal/wa"
+	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/types"
 	"google.golang.org/protobuf/proto"
 )
 
 const maxSendFileSize = 100 * 1024 * 1024
+const voiceWaveformSamples = 64
+const voiceWaveformMax = 100
+
+type sendFileOptions struct {
+	filename      string
+	caption       string
+	mimeOverride  string
+	replyTo       string
+	replyToSender string
+	ptt           bool
+}
+
+type voiceNoteMetadata struct {
+	seconds  uint32
+	waveform []byte
+}
 
 func sendFile(ctx context.Context, a interface {
 	WA() app.WAClient
 	DB() *store.DB
-}, to types.JID, filePath, filename, caption, mimeOverride, replyTo, replyToSender string) (string, map[string]string, error) {
+}, to types.JID, filePath string, opts sendFileOptions) (string, map[string]string, error) {
 	data, err := readSendFileData(filePath)
 	if err != nil {
 		return "", nil, err
 	}
 
-	name := strings.TrimSpace(filename)
+	name := strings.TrimSpace(opts.filename)
 	if name == "" {
 		name = filepath.Base(filePath)
 	}
-	mimeType := detectSendFileMIME(filePath, mimeOverride, data)
+	mimeType := detectSendFileMIME(filePath, opts.mimeOverride, data)
+	if opts.ptt && !isOggOpusMIME(mimeType) {
+		return "", nil, fmt.Errorf("voice notes require OGG Opus audio; got %s", mimeType)
+	}
 
 	mediaType := "document"
 	uploadType, _ := wa.MediaTypeFromString("document")
@@ -56,9 +80,13 @@ func sendFile(ctx context.Context, a interface {
 
 	now := time.Now().UTC()
 	msg := &waProto.Message{}
-	replyContext, err := buildReplyContextInfo(a.DB(), to, replyTo, replyToSender)
+	replyContext, err := buildReplyContextInfo(a.DB(), to, opts.replyTo, opts.replyToSender)
 	if err != nil {
 		return "", nil, err
+	}
+	voiceMeta := voiceNoteMetadata{}
+	if opts.ptt {
+		voiceMeta = loadVoiceNoteMetadata(ctx, filePath)
 	}
 
 	switch mediaType {
@@ -71,7 +99,7 @@ func sendFile(ctx context.Context, a interface {
 			FileSHA256:    up.FileSHA256,
 			FileLength:    proto.Uint64(up.FileLength),
 			Mimetype:      proto.String(mimeType),
-			Caption:       proto.String(caption),
+			Caption:       proto.String(opts.caption),
 		}
 	case "video":
 		msg.VideoMessage = &waProto.VideoMessage{
@@ -82,19 +110,10 @@ func sendFile(ctx context.Context, a interface {
 			FileSHA256:    up.FileSHA256,
 			FileLength:    proto.Uint64(up.FileLength),
 			Mimetype:      proto.String(mimeType),
-			Caption:       proto.String(caption),
+			Caption:       proto.String(opts.caption),
 		}
 	case "audio":
-		msg.AudioMessage = &waProto.AudioMessage{
-			URL:           proto.String(up.URL),
-			DirectPath:    proto.String(up.DirectPath),
-			MediaKey:      up.MediaKey,
-			FileEncSHA256: up.FileEncSHA256,
-			FileSHA256:    up.FileSHA256,
-			FileLength:    proto.Uint64(up.FileLength),
-			Mimetype:      proto.String(mimeType),
-			PTT:           proto.Bool(false),
-		}
+		msg.AudioMessage = newAudioMessage(up, mimeType, opts.ptt, voiceMeta)
 	default:
 		msg.DocumentMessage = &waProto.DocumentMessage{
 			URL:           proto.String(up.URL),
@@ -105,7 +124,7 @@ func sendFile(ctx context.Context, a interface {
 			FileLength:    proto.Uint64(up.FileLength),
 			Mimetype:      proto.String(mimeType),
 			FileName:      proto.String(name),
-			Caption:       proto.String(caption),
+			Caption:       proto.String(opts.caption),
 			Title:         proto.String(name),
 		}
 	}
@@ -127,9 +146,9 @@ func sendFile(ctx context.Context, a interface {
 		SenderName:    "me",
 		Timestamp:     now,
 		FromMe:        true,
-		Text:          caption,
+		Text:          opts.caption,
 		MediaType:     mediaType,
-		MediaCaption:  caption,
+		MediaCaption:  opts.caption,
 		Filename:      name,
 		MimeType:      mimeType,
 		DirectPath:    up.DirectPath,
@@ -143,7 +162,30 @@ func sendFile(ctx context.Context, a interface {
 		"name":      name,
 		"mime_type": mimeType,
 		"media":     mediaType,
+		"ptt":       strconv.FormatBool(opts.ptt),
 	}, nil
+}
+
+func newAudioMessage(up whatsmeow.UploadResponse, mimeType string, ptt bool, meta voiceNoteMetadata) *waProto.AudioMessage {
+	msg := &waProto.AudioMessage{
+		URL:           proto.String(up.URL),
+		DirectPath:    proto.String(up.DirectPath),
+		MediaKey:      up.MediaKey,
+		FileEncSHA256: up.FileEncSHA256,
+		FileSHA256:    up.FileSHA256,
+		FileLength:    proto.Uint64(up.FileLength),
+		Mimetype:      proto.String(mimeType),
+		PTT:           proto.Bool(ptt),
+	}
+	if ptt {
+		if meta.seconds > 0 {
+			msg.Seconds = proto.Uint32(meta.seconds)
+		}
+		if len(meta.waveform) == voiceWaveformSamples {
+			msg.Waveform = meta.waveform
+		}
+	}
+	return msg
 }
 
 func readSendFileData(filePath string) ([]byte, error) {
@@ -203,4 +245,104 @@ func detectSendFileMIME(filePath, mimeOverride string, data []byte) string {
 		return "audio/ogg; codecs=opus"
 	}
 	return mimeType
+}
+
+func isOggOpusMIME(mimeType string) bool {
+	mediaType, params, err := mime.ParseMediaType(mimeType)
+	if err != nil {
+		return false
+	}
+	codecs := strings.ToLower(params["codecs"])
+	return mediaType == "audio/ogg" && strings.Contains(codecs, "opus")
+}
+
+func loadVoiceNoteMetadata(ctx context.Context, filePath string) voiceNoteMetadata {
+	return voiceNoteMetadata{
+		seconds:  probeAudioSeconds(ctx, filePath),
+		waveform: probeAudioWaveform(ctx, filePath),
+	}
+}
+
+func probeAudioSeconds(ctx context.Context, filePath string) uint32 {
+	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(probeCtx, "ffprobe",
+		"-v", "error",
+		"-show_entries", "format=duration",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		filePath,
+	).Output()
+	if err != nil {
+		return 0
+	}
+	seconds, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	if err != nil || seconds <= 0 {
+		return 0
+	}
+	return uint32(math.Ceil(seconds))
+}
+
+func probeAudioWaveform(ctx context.Context, filePath string) []byte {
+	probeCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(probeCtx, "ffmpeg",
+		"-v", "error",
+		"-i", filePath,
+		"-ac", "1",
+		"-ar", "8000",
+		"-f", "s16le",
+		"-acodec", "pcm_s16le",
+		"-",
+	).Output()
+	if err != nil {
+		return nil
+	}
+	return waveformFromPCM16LE(out)
+}
+
+func waveformFromPCM16LE(data []byte) []byte {
+	waveform := make([]byte, voiceWaveformSamples)
+	sampleCount := len(data) / 2
+	if sampleCount == 0 {
+		return waveform
+	}
+
+	bucketSize := int(math.Ceil(float64(sampleCount) / voiceWaveformSamples))
+	levels := make([]float64, voiceWaveformSamples)
+	var maxLevel float64
+	for i := 0; i < voiceWaveformSamples; i++ {
+		start := i * bucketSize
+		if start >= sampleCount {
+			break
+		}
+		end := start + bucketSize
+		if end > sampleCount {
+			end = sampleCount
+		}
+
+		var sum float64
+		for sampleIndex := start; sampleIndex < end; sampleIndex++ {
+			offset := sampleIndex * 2
+			sample := int16(binary.LittleEndian.Uint16(data[offset : offset+2]))
+			sum += math.Abs(float64(sample))
+		}
+		levels[i] = sum / float64(end-start)
+		if levels[i] > maxLevel {
+			maxLevel = levels[i]
+		}
+	}
+	if maxLevel == 0 {
+		return waveform
+	}
+
+	for i, level := range levels {
+		normalized := math.Round((level / maxLevel) * voiceWaveformMax)
+		if normalized > voiceWaveformMax {
+			normalized = voiceWaveformMax
+		}
+		waveform[i] = byte(normalized)
+	}
+	return waveform
 }

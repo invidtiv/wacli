@@ -48,7 +48,7 @@ wacli send text --to mom --message "hello"
 
 Commands that accept `PHONE_OR_JID` accept a WhatsApp JID like `1234567890@s.whatsapp.net`, a group JID like `123456789@g.us`, or a phone number with common formatting such as `+1 (234) 567-8900`.
 
-`send text` and `send file` also accept synced contact, group, or chat names through `RECIPIENT`. If a name is ambiguous, interactive terminals prompt; scripts can use `--pick N`.
+`send text`, `send file`, and `send voice` also accept synced contact, group, or chat names through `RECIPIENT`. If a name is ambiguous, interactive terminals prompt; scripts can use `--pick N`.
 
 ## History limits
 

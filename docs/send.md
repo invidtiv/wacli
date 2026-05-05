@@ -8,7 +8,8 @@ Read when: sending text, files, quoted replies, or reactions.
 
 ```bash
 wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
-wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send voice --to RECIPIENT --file PATH [--pick N] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]
 ```
 
@@ -37,6 +38,9 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 - MIME type is detected automatically unless `--mime` is set.
 - `--filename` changes the displayed document name.
 - Captions apply to images, videos, and documents.
+- `send voice` is a shortcut for `send file --ptt`.
+- Voice notes require OGG/Opus audio (`audio/ogg; codecs=opus`).
+- When available, `ffprobe` sets voice-note duration and `ffmpeg` generates the 64-sample waveform from decoded PCM audio.
 
 ## Examples
 
@@ -46,5 +50,6 @@ wacli send text --to "Family" --pick 2 --message "on my way"
 wacli send text --to 1234567890 --message "replying" --reply-to ABC123
 wacli send file --to 1234567890 --file ./pic.jpg --caption "hi"
 wacli send file --to 1234567890 --file /tmp/report --filename report.pdf
+wacli send voice --to 1234567890 --file ./voice.ogg
 wacli send react --to 1234567890 --id ABC123 --reaction "❤️"
 ```
