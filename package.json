@@ -13,6 +13,7 @@
     "test:cgo-required": "bash -lc 'set +e; out=$(CGO_ENABLED=0 go build ./cmd/wacli 2>&1); status=$?; set -e; echo \"$out\" | grep -q wacli_requires_cgo_enabled_1_for_go_sqlite3; test $status -ne 0'",
     "lint": "go vet ./...",
     "format": "gofmt -w .",
-    "format:check": "bash -lc 'out=$(gofmt -l .); if [ -n \"$out\" ]; then echo \"$out\"; exit 1; fi'"
+    "format:check": "bash -lc 'out=$(gofmt -l .); if [ -n \"$out\" ]; then echo \"$out\"; exit 1; fi'",
+    "docs:site": "node scripts/build-docs-site.mjs"
   }
 }
