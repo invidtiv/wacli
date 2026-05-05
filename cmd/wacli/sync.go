@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -53,9 +54,28 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 				mode = appPkg.SyncModeOnce
 			}
 
+			var stopSendDelegate func()
+			defer func() {
+				if stopSendDelegate != nil {
+					stopSendDelegate()
+				}
+			}()
+			var afterConnect func(context.Context) error
+			if mode == appPkg.SyncModeFollow {
+				afterConnect = func(ctx context.Context) error {
+					stop, err := startSendDelegateServer(ctx, a)
+					if err != nil {
+						return err
+					}
+					stopSendDelegate = stop
+					return nil
+				}
+			}
+
 			res, err := a.Sync(ctx, appPkg.SyncOptions{
 				Mode:            mode,
 				AllowQR:         false,
+				AfterConnect:    afterConnect,
 				DownloadMedia:   downloadMedia,
 				RefreshContacts: refreshContacts,
 				RefreshGroups:   refreshGroups,

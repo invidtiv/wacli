@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -38,6 +39,29 @@ func newSendFileCmd(flags *rootFlags) *cobra.Command {
 
 			a, lk, err := newApp(ctx, flags, true, false)
 			if err != nil {
+				delegateFile := filePath
+				if abs, absErr := filepath.Abs(filePath); absErr == nil {
+					delegateFile = abs
+				}
+				resp, delegated, delegateErr := tryDelegateSend(ctx, flags, err, sendDelegateRequest{
+					Kind:           "file",
+					To:             to,
+					Pick:           pick,
+					File:           delegateFile,
+					Filename:       filename,
+					Caption:        caption,
+					MIME:           mimeOverride,
+					ReplyTo:        replyTo,
+					ReplyToSender:  replyToSender,
+					PTT:            ptt,
+					PostSendWaitMS: durationMillis(postSendWait),
+				})
+				if delegated {
+					if delegateErr != nil {
+						return delegateErr
+					}
+					return writeDelegatedSendOutput(flags, "file", resp)
+				}
 				return err
 			}
 			defer closeApp(a, lk)

@@ -57,6 +57,7 @@
 - Messages: show display text for replies, reactions, and media in `messages context`. (#183 — thanks @fuleinist)
 - Send: strip a leading `+` from phone-number recipients before building WhatsApp JIDs. (#74 — thanks @FrederickStempfle)
 - Search: keep FTS5 enabled after reopening existing databases with already-applied migrations. (#185 — thanks @iamhitarth)
+- Send: delegate send commands through a running `sync --follow` process instead of failing on the store lock. (#6, #48, #92)
 - Send: add `send text --reply-to` for quoted replies, with sender inference for synced group messages. (#154 — thanks @draix)
 - Send: validate image uploads and include image dimensions plus a JPEG thumbnail for better client rendering.
 - Send: keep the connection alive briefly after successful sends so retry receipts can repair first-send session gaps. (#89 — thanks @alexph-dev)

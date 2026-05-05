@@ -23,6 +23,7 @@ wacli sync [--once] [--follow] [--idle-exit 30s] [--max-reconnect 5m] [--max-mes
 - `--refresh-groups` fetches joined groups live and updates the local DB.
 - If neither storage cap is configured, sync prints one warning because WhatsApp history can grow the local database substantially.
 - `WACLI_SYNC_MAX_MESSAGES` and `WACLI_SYNC_MAX_DB_SIZE` apply the same caps to `auth` bootstrap sync and `sync`.
+- While `sync --follow` is running, `send text`, `send file`, `send voice`, and `send react` commands for the same store are delegated to the running sync process so they do not fail on the store lock.
 
 ## Examples
 

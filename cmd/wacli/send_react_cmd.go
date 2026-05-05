@@ -36,6 +36,20 @@ func newSendReactCmd(flags *rootFlags) *cobra.Command {
 
 			a, lk, err := newApp(ctx, flags, true, false)
 			if err != nil {
+				resp, delegated, delegateErr := tryDelegateSend(ctx, flags, err, sendDelegateRequest{
+					Kind:           "react",
+					To:             to,
+					ID:             msgID,
+					Reaction:       emoji,
+					Sender:         sender,
+					PostSendWaitMS: durationMillis(postSendWait),
+				})
+				if delegated {
+					if delegateErr != nil {
+						return delegateErr
+					}
+					return writeDelegatedSendOutput(flags, "react", resp)
+				}
 				return err
 			}
 			defer closeApp(a, lk)

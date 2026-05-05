@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -35,6 +36,26 @@ func newSendVoiceCmd(flags *rootFlags) *cobra.Command {
 
 			a, lk, err := newApp(ctx, flags, true, false)
 			if err != nil {
+				delegateFile := filePath
+				if abs, absErr := filepath.Abs(filePath); absErr == nil {
+					delegateFile = abs
+				}
+				resp, delegated, delegateErr := tryDelegateSend(ctx, flags, err, sendDelegateRequest{
+					Kind:           "voice",
+					To:             to,
+					Pick:           pick,
+					File:           delegateFile,
+					MIME:           mimeOverride,
+					ReplyTo:        replyTo,
+					ReplyToSender:  replyToSender,
+					PostSendWaitMS: durationMillis(postSendWait),
+				})
+				if delegated {
+					if delegateErr != nil {
+						return delegateErr
+					}
+					return writeDelegatedSendOutput(flags, "voice", resp)
+				}
 				return err
 			}
 			defer closeApp(a, lk)

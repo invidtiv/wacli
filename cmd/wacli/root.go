@@ -68,11 +68,7 @@ func execute(args []string) error {
 }
 
 func newApp(ctx context.Context, flags *rootFlags, needLock bool, allowUnauthed bool) (*app.App, *lock.Lock, error) {
-	storeDir := flags.storeDir
-	if storeDir == "" {
-		storeDir = config.DefaultStoreDir()
-	}
-	storeDir, _ = filepath.Abs(storeDir)
+	storeDir := resolveStoreDir(flags)
 
 	var lk *lock.Lock
 	if needLock {
@@ -97,6 +93,18 @@ func newApp(ctx context.Context, flags *rootFlags, needLock bool, allowUnauthed 
 	}
 
 	return a, lk, nil
+}
+
+func resolveStoreDir(flags *rootFlags) string {
+	storeDir := ""
+	if flags != nil {
+		storeDir = flags.storeDir
+	}
+	if storeDir == "" {
+		storeDir = config.DefaultStoreDir()
+	}
+	storeDir, _ = filepath.Abs(storeDir)
+	return storeDir
 }
 
 func (f *rootFlags) isReadOnly() bool {

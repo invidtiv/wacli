@@ -2,6 +2,7 @@ package lock
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,8 @@ type Lock struct {
 	path string
 	f    *os.File
 }
+
+var ErrLocked = errors.New("store locked")
 
 func Acquire(storeDir string) (*Lock, error) {
 	if err := fsutil.EnsurePrivateDir(storeDir); err != nil {
@@ -32,9 +35,9 @@ func Acquire(storeDir string) (*Lock, error) {
 		_ = f.Close()
 		info := strings.TrimSpace(string(b))
 		if info != "" {
-			return nil, fmt.Errorf("store is locked (another wacli is running?): %w (%s)", err, info)
+			return nil, fmt.Errorf("store is locked (another wacli is running?): %w: %w (%s)", ErrLocked, err, info)
 		}
-		return nil, fmt.Errorf("store is locked (another wacli is running?): %w", err)
+		return nil, fmt.Errorf("store is locked (another wacli is running?): %w: %w", ErrLocked, err)
 	}
 
 	_ = f.Truncate(0)
@@ -69,6 +72,10 @@ func AcquireWithTimeout(ctx context.Context, storeDir string, wait time.Duration
 		case <-ticker.C:
 		}
 	}
+}
+
+func IsLocked(err error) bool {
+	return errors.Is(err, ErrLocked)
 }
 
 func (l *Lock) Release() error {

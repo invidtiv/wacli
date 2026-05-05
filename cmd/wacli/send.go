@@ -58,6 +58,23 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 
 			a, lk, err := newApp(ctx, flags, true, false)
 			if err != nil {
+				resp, delegated, delegateErr := tryDelegateSend(ctx, flags, err, sendDelegateRequest{
+					Kind:           "text",
+					To:             to,
+					Pick:           pick,
+					Message:        message,
+					Mentions:       mentions,
+					ReplyTo:        replyTo,
+					ReplyToSender:  replyToSender,
+					NoPreview:      noPreview,
+					PostSendWaitMS: durationMillis(postSendWait),
+				})
+				if delegated {
+					if delegateErr != nil {
+						return delegateErr
+					}
+					return writeDelegatedSendOutput(flags, "text", resp)
+				}
 				return err
 			}
 			defer closeApp(a, lk)

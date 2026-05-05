@@ -2,6 +2,7 @@ package lock
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,6 +23,10 @@ func TestLockBlocksOtherProcess(t *testing.T) {
 		if !strings.Contains(err.Error(), "store is locked") {
 			_, _ = fmt.Fprintf(os.Stdout, "UNEXPECTED_ERR:%v\n", err)
 			os.Exit(3)
+		}
+		if !IsLocked(err) {
+			_, _ = fmt.Fprintf(os.Stdout, "UNEXPECTED_NOT_LOCKED:%v\n", err)
+			os.Exit(4)
 		}
 		_, _ = os.Stdout.WriteString("EXPECTED_LOCKED\n")
 		return
@@ -51,6 +56,9 @@ func TestLockBlocksOtherProcess(t *testing.T) {
 	if strings.Contains(got, "UNEXPECTED_OK") || strings.Contains(got, "UNEXPECTED_ERR:") {
 		t.Fatalf("unexpected helper output: %q", strings.TrimSpace(got))
 	}
+	if strings.Contains(got, "UNEXPECTED_NOT_LOCKED:") {
+		t.Fatalf("helper error did not wrap ErrLocked: %q", strings.TrimSpace(got))
+	}
 	if !strings.Contains(got, "EXPECTED_LOCKED") {
 		t.Fatalf("expected helper to report locked; output=%q", strings.TrimSpace(got))
 	}
@@ -70,5 +78,8 @@ func TestAcquireWithTimeout(t *testing.T) {
 	_, err = AcquireWithTimeout(ctx, dir, 50*time.Millisecond)
 	if err == nil || !strings.Contains(err.Error(), "timed out waiting for store lock") {
 		t.Fatalf("AcquireWithTimeout error = %v", err)
+	}
+	if !errors.Is(err, ErrLocked) || !IsLocked(err) {
+		t.Fatalf("AcquireWithTimeout did not wrap ErrLocked: %v", err)
 	}
 }
