@@ -45,7 +45,7 @@ func (c *Client) DownloadMediaToFile(ctx context.Context, directPath string, enc
 		return 0, err
 	}
 
-	if err := fsutil.EnsurePrivateDir(filepath.Dir(targetPath)); err != nil {
+	if err := fsutil.EnsureWritableDir(filepath.Dir(targetPath)); err != nil {
 		return 0, fmt.Errorf("create output dir: %w", err)
 	}
 
