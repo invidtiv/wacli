@@ -24,6 +24,7 @@
 - Chats: add archive/unarchive, pin/unpin, mute/unmute, and mark-read/mark-unread commands, plus list/show state fields. (#46 — thanks @decodiver22)
 - Channels: add WhatsApp Channel list/info/join/leave commands, channel chat caching, and text/file sends to `...@newsletter` JIDs. (#72 — thanks @frapeti)
 - Groups: persist WhatsApp Community parent/subgroup metadata from group refresh and info. (#207, #39 — thanks @dinakars777 and @TheMazzle)
+- History: add `history coverage` and `history fill --dry-run` to inspect local archive anchors before running best-effort backfill. (#111 — thanks @cropsgg)
 - Profile: add `profile set-picture` to update the authenticated account profile picture from JPEG or PNG input. (#198 — thanks @gado-ships-it)
 - Sync: add signed live-message webhooks with `--webhook` and `--webhook-secret`. (#203 — thanks @dinakars777 and @Melostack)
 - Send: add `send react` to add or clear reactions, with group sender validation. (#151 — thanks @draix)

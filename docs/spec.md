@@ -171,6 +171,8 @@ Notes:
 WhatsApp Web history is best-effort. If you want to try fetching *older* messages for a specific chat, `wacli` can send an on-demand history request to your primary device:
 
 - `wacli history backfill --chat JID [--count 50] [--requests N]`
+- `wacli history coverage` inspects local chat/message coverage without connecting.
+- `wacli history fill --dry-run` plans matching chats with local anchors; it does not write or connect.
 - Backfill caps: `--count <= 500`, `--requests <= 100`.
 - During backfill, automatic initial history-sync blob downloads are disabled; only on-demand history-sync notifications are downloaded and stored.
 

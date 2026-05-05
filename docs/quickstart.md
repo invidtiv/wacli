@@ -94,10 +94,12 @@ Recipient resolution and disambiguation (`--pick N`, ambiguous-name prompts), li
 `sync` only stores what WhatsApp Web pushes. To request older messages for a specific chat from your **primary device** (your phone), use:
 
 ```bash
+wacli history coverage --include-blocked
+wacli history fill --dry-run --limit 20
 wacli history backfill --chat 1234567890@s.whatsapp.net --requests 10 --count 50
 ```
 
-The phone must be online. WhatsApp may not return full history. See [History](history.md) for limits and patterns (loop over chats with `jq`, recommended `--count`/`--requests` ceilings).
+The phone must be online for `backfill`. WhatsApp may not return full history. See [History](history.md) for coverage planning, limits, and patterns.
 
 ## 7. Diagnostics and safety
 

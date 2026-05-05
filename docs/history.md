@@ -2,13 +2,22 @@
 
 Read when: trying to fetch older messages for a known chat.
 
-`wacli history backfill` sends on-demand history sync requests to the primary device. This is best-effort and depends on the phone being online and WhatsApp returning older messages.
+`wacli history` inspects local archive coverage and can send on-demand history sync requests to the primary device. Backfill is best-effort and depends on the phone being online and WhatsApp returning older messages.
 
-## Command
+## Commands
 
 ```bash
+wacli history coverage [--query TEXT] [--kind KIND] [--include-blocked] [--only-actionable]
+wacli history fill --dry-run [--query TEXT] [--kind KIND] [--limit 100]
 wacli history backfill --chat JID [--count 50] [--requests N] [--wait 1m] [--idle-exit 5s] [--events]
 ```
+
+## Coverage and planning
+
+- `history coverage` reads only the local `wacli.db` store.
+- `ready` chats have at least one local message, so `history backfill` has an anchor.
+- `blocked` / `no_local_anchor` chats have no local message yet; run `wacli sync` first.
+- `history fill --dry-run` lists matching ready chats that would be selected for a future multi-chat fill workflow. It does not connect to WhatsApp or write state.
 
 ## Limits
 
@@ -22,6 +31,9 @@ wacli history backfill --chat JID [--count 50] [--requests N] [--wait 1m] [--idl
 ## Examples
 
 ```bash
+wacli history coverage --include-blocked
+wacli history coverage --query family --only-actionable
+wacli history fill --dry-run --kind group --limit 20
 wacli history backfill --chat 1234567890@s.whatsapp.net --requests 10 --count 50
 wacli history backfill --chat 123456789@g.us --requests 3 --wait 90s
 ```

@@ -16,12 +16,12 @@ A script-friendly WhatsApp CLI built on [`whatsmeow`](https://github.com/tulir/w
 - **Single binary.** No daemon, no plugin host. Run `wacli auth`, then `wacli sync --follow` to keep the store warm.
 - **Built for agents.** `--read-only` (or `WACLI_READONLY=1`) blocks every command that mutates WhatsApp or local state. Store locks prevent two instances from racing on the same device identity.
 - **Boundable storage.** `sync` warns when storage is uncapped; `--max-messages` / `--max-db-size` cap local growth. Send retries are bounded; media uploads/downloads cap at 100 MiB.
-- **Best-effort history.** `history backfill` requests older messages per chat from your primary device; documented as best-effort because WhatsApp Web is.
+- **Best-effort history.** `history coverage` shows local anchors, `history fill --dry-run` plans candidate chats, and `history backfill` requests older messages per chat from your primary device.
 
 ## Pick your path
 
 - **Trying it.** Read [Install](install.md), then [Quickstart](quickstart.md). Pair, sync, and send your first message in under five minutes.
-- **Searching old chats.** Read [Sync](sync.md) for the sync model and [History](history.md) for on-demand backfill.
+- **Searching old chats.** Read [Sync](sync.md) for the sync model and [History](history.md) for coverage planning and on-demand backfill.
 - **Managing chat state.** Read [Chats](chats.md) for archive, pin, mute, and read/unread commands.
 - **Sending from scripts.** Read [Send](send.md) for recipient resolution, channels, replies, mentions, files, and reactions.
 - **Wiring up an agent.** Pair `--read-only`, `--json`, and `--events` from [Overview](overview.md); read [Doctor](doctor.md) for self-checks.

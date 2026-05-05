@@ -29,7 +29,7 @@ Full docs site: <https://wacli.sh>.
 - [Chats](docs/chats.md): `chats list/show`, archive, pin, mute, mark read.
 - [Groups](docs/groups.md): group list, refresh, info, rename, leave, participants, invites, join.
 - [Channels](docs/channels.md): `channels list/info/join/leave`, plus sending to channel JIDs.
-- [History](docs/history.md): `history backfill`.
+- [History](docs/history.md): `history coverage`, `history fill --dry-run`, `history backfill`.
 - [Presence](docs/presence.md): `presence typing/paused`.
 - [Profile](docs/profile.md): `profile set-picture`.
 - [Doctor](docs/doctor.md): `doctor [--connect]`.
@@ -116,6 +116,8 @@ pnpm wacli messages edit --chat 1234567890@s.whatsapp.net --id <message-id> --me
 pnpm wacli messages delete --chat 1234567890@s.whatsapp.net --id <message-id>
 
 # Backfill older messages for a chat (best-effort; requires your primary device online)
+pnpm wacli history coverage --include-blocked
+pnpm wacli history fill --dry-run --query family
 pnpm wacli history backfill --chat 1234567890@s.whatsapp.net --requests 10 --count 50
 
 # Download media for a message (after syncing)
@@ -222,6 +224,8 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli channels info --jid CHANNEL_JID`
 - `wacli channels join --invite LINK_OR_CODE`
 - `wacli channels leave --jid CHANNEL_JID`
+- `wacli history coverage [--include-blocked] [--only-actionable]`
+- `wacli history fill --dry-run [--query TEXT] [--kind KIND]`
 - `wacli history backfill --chat JID [--count 50] [--requests N]`
 - `wacli presence typing --to PHONE_OR_JID [--media audio]`
 - `wacli presence paused --to PHONE_OR_JID`
@@ -266,6 +270,8 @@ Important notes:
 - This is **best-effort**: WhatsApp may not return full history.
 - Your **primary device must be online**.
 - Requests are **per chat** (DM or group). `wacli` uses the *oldest locally stored message* in that chat as the anchor.
+- `history coverage` shows which chats have a local message anchor; blocked chats need `wacli sync` before backfill can request older messages.
+- `history fill --dry-run` plans matching chats only. It does not connect to WhatsApp or mutate the store.
 - Backfill skips automatic initial history-sync blob downloads and only processes on-demand responses, which keeps memory use bounded on small Linux/ARM devices.
 - Recommended `--count` is `50` per request; maximum is `500`.
 - Maximum `--requests` per run is `100`.
@@ -273,6 +279,8 @@ Important notes:
 ### Backfill one chat
 
 ```bash
+pnpm wacli history coverage --include-blocked
+pnpm wacli history fill --dry-run --kind group --limit 20
 pnpm wacli history backfill --chat 1234567890@s.whatsapp.net --requests 10 --count 50
 ```
 
