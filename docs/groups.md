@@ -24,9 +24,10 @@ wacli groups join --code INVITE_CODE
 ## Notes
 
 - Group JIDs use the `...@g.us` server.
-- `list` reads local rows and hides groups marked left.
-- `refresh` fetches joined groups live and updates local rows.
-- `info` fetches one group live and persists it.
+- `list` reads local rows and hides groups marked left. Human output includes the group type (`group`, `community`, or `subgroup`) and parent community JID when known.
+- `list --json` includes `IsParent` for communities and `LinkedParentJID` for subgroups.
+- `refresh` fetches joined groups live and updates local rows, including WhatsApp Community hierarchy metadata exposed by whatsmeow.
+- `info` fetches one group live and persists it, including whether the chat is a Community parent or linked subgroup.
 - `leave` marks the group left locally after WhatsApp confirms.
 - Participant users accept phone numbers with common formatting or JIDs.
 - Invite `revoke` resets the invite link.

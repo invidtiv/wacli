@@ -35,6 +35,62 @@ func TestGroupsUpsertListAndParticipantsReplace(t *testing.T) {
 	}
 }
 
+func TestGroupsUpsertHierarchy(t *testing.T) {
+	db := openTestDB(t)
+
+	parent := "parent@g.us"
+	child := "child@g.us"
+	created := time.Date(2024, 2, 3, 4, 5, 6, 0, time.UTC)
+
+	if err := db.UpsertGroupWithHierarchy(parent, "Community", "", created, true, "ignored@g.us"); err != nil {
+		t.Fatalf("UpsertGroupWithHierarchy parent: %v", err)
+	}
+	if err := db.UpsertGroupWithHierarchy(child, "Subgroup", "", created, false, parent); err != nil {
+		t.Fatalf("UpsertGroupWithHierarchy child: %v", err)
+	}
+
+	gs, err := db.ListGroups("", 10)
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	byJID := map[string]Group{}
+	for _, g := range gs {
+		byJID[g.JID] = g
+	}
+	if got := byJID[parent]; !got.IsParent || got.LinkedParentJID != "" {
+		t.Fatalf("parent hierarchy = %+v, want parent without linked parent", got)
+	}
+	if got := byJID[child]; got.IsParent || got.LinkedParentJID != parent {
+		t.Fatalf("child hierarchy = %+v, want linked parent %q", got, parent)
+	}
+
+	if err := db.UpsertGroup(child, "Renamed", "", time.Time{}); err != nil {
+		t.Fatalf("UpsertGroup preserve hierarchy: %v", err)
+	}
+	gs, err = db.ListGroups("", 10)
+	if err != nil {
+		t.Fatalf("ListGroups after preserve: %v", err)
+	}
+	for _, g := range gs {
+		if g.JID == child && g.LinkedParentJID != parent {
+			t.Fatalf("plain upsert should preserve hierarchy, got %+v", g)
+		}
+	}
+
+	if err := db.UpsertGroupWithHierarchy(child, "Subgroup", "", created, false, ""); err != nil {
+		t.Fatalf("UpsertGroupWithHierarchy clear: %v", err)
+	}
+	gs, err = db.ListGroups("", 10)
+	if err != nil {
+		t.Fatalf("ListGroups after clear: %v", err)
+	}
+	for _, g := range gs {
+		if g.JID == child && g.LinkedParentJID != "" {
+			t.Fatalf("hierarchy clear failed, got %+v", g)
+		}
+	}
+}
+
 func TestGroupsLeftStateHiddenUntilRefreshed(t *testing.T) {
 	db := openTestDB(t)
 

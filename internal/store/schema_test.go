@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,6 +50,79 @@ func TestOpenCreatesExpectedSchema(t *testing.T) {
 			t.Fatalf("expected starred column %q to exist", want)
 		}
 	}
+
+	groupCols, err := tableColumns(db.sql, "groups")
+	if err != nil {
+		t.Fatalf("groups tableColumns: %v", err)
+	}
+	for _, want := range []string{"is_parent", "linked_parent_jid"} {
+		if !groupCols[want] {
+			t.Fatalf("expected groups column %q to exist", want)
+		}
+	}
+	if !indexExists(t, db.sql, "idx_groups_linked_parent_jid") {
+		t.Fatalf("expected linked-parent group index to exist")
+	}
+}
+
+func TestOpenMigratesGroupHierarchyColumns(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wacli.db")
+
+	raw, err := sql.Open("sqlite3", path)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	if _, err := raw.Exec(`
+		CREATE TABLE schema_migrations (
+			version INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			applied_at INTEGER NOT NULL
+		);
+		CREATE TABLE groups (
+			jid TEXT PRIMARY KEY,
+			name TEXT,
+			owner_jid TEXT,
+			created_ts INTEGER,
+			left_at INTEGER,
+			updated_at INTEGER NOT NULL
+		);
+		INSERT INTO groups(jid, name, updated_at) VALUES('g@g.us', 'Old', 1);
+	`); err != nil {
+		_ = raw.Close()
+		t.Fatalf("create old schema: %v", err)
+	}
+	for _, m := range schemaMigrations {
+		if m.version >= 11 {
+			continue
+		}
+		if _, err := raw.Exec(`INSERT INTO schema_migrations(version, name, applied_at) VALUES(?, ?, 1)`, m.version, m.name); err != nil {
+			_ = raw.Close()
+			t.Fatalf("mark migration %d: %v", m.version, err)
+		}
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("raw close: %v", err)
+	}
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open migrated DB: %v", err)
+	}
+	defer db.Close()
+
+	groupCols, err := tableColumns(db.sql, "groups")
+	if err != nil {
+		t.Fatalf("groups tableColumns: %v", err)
+	}
+	for _, want := range []string{"is_parent", "linked_parent_jid"} {
+		if !groupCols[want] {
+			t.Fatalf("expected migrated groups column %q to exist", want)
+		}
+	}
+	if !indexExists(t, db.sql, "idx_groups_linked_parent_jid") {
+		t.Fatalf("expected migrated linked-parent group index to exist")
+	}
 }
 
 func tableColumns(db *sql.DB, table string) (map[string]bool, error) {
@@ -72,4 +146,17 @@ func tableColumns(db *sql.DB, table string) (map[string]bool, error) {
 		cols[strings.ToLower(name)] = true
 	}
 	return cols, rows.Err()
+}
+
+func indexExists(t *testing.T, db *sql.DB, name string) bool {
+	t.Helper()
+	var found string
+	err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='index' AND name=?`, name).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false
+	}
+	if err != nil {
+		t.Fatalf("query index %q: %v", name, err)
+	}
+	return found == name
 }

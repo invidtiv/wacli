@@ -24,6 +24,7 @@ var schemaMigrations = []migration{
 	{version: 8, name: "messages revoked column", up: migrateMessagesRevokedColumn},
 	{version: 9, name: "messages deleted_for_me column", up: migrateMessagesDeletedForMeColumn},
 	{version: 10, name: "chat state columns", up: migrateChatStateColumns},
+	{version: 11, name: "group hierarchy columns", up: migrateGroupHierarchyColumns},
 }
 
 func (d *DB) ensureSchema() error {
@@ -206,6 +207,32 @@ func migrateChatStateColumns(d *DB) error {
 		if _, err := d.sql.Exec(col.ddl); err != nil {
 			return fmt.Errorf("add chats.%s column: %w", col.name, err)
 		}
+	}
+	return nil
+}
+
+func migrateGroupHierarchyColumns(d *DB) error {
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"is_parent", "ALTER TABLE groups ADD COLUMN is_parent INTEGER NOT NULL DEFAULT 0"},
+		{"linked_parent_jid", "ALTER TABLE groups ADD COLUMN linked_parent_jid TEXT"},
+	}
+	for _, col := range cols {
+		has, err := d.tableHasColumn("groups", col.name)
+		if err != nil {
+			return err
+		}
+		if has {
+			continue
+		}
+		if _, err := d.sql.Exec(col.ddl); err != nil {
+			return fmt.Errorf("add groups.%s column: %w", col.name, err)
+		}
+	}
+	if _, err := d.sql.Exec(`CREATE INDEX IF NOT EXISTS idx_groups_linked_parent_jid ON groups(linked_parent_jid)`); err != nil {
+		return fmt.Errorf("create groups linked-parent index: %w", err)
 	}
 	return nil
 }
