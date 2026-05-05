@@ -112,6 +112,9 @@ func writeMessageShow(dst io.Writer, m store.Message) error {
 	if m.Revoked {
 		fmt.Fprintln(dst, "Deleted: yes")
 	}
+	if m.DeletedForMe {
+		fmt.Fprintln(dst, "Deleted for me: yes")
+	}
 	fmt.Fprintf(dst, "\n%s\n", messageText(m))
 	if raw := messageRawText(m); raw != "" {
 		fmt.Fprintf(dst, "\nRaw text:\n%s\n", raw)
@@ -166,6 +169,9 @@ func messageFromDetail(m store.Message) string {
 }
 
 func messageText(m store.Message) string {
+	if m.DeletedForMe {
+		return store.DeletedForMeMessageDisplayText
+	}
 	if m.Revoked {
 		return store.DeletedMessageDisplayText
 	}

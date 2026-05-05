@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -25,6 +27,39 @@ func TestNewEnablesRetryMessageStore(t *testing.T) {
 	}
 	if got := c.LinkedJID(); got != "" {
 		t.Fatalf("LinkedJID before auth = %q", got)
+	}
+}
+
+func TestBuildDeleteForMePatch(t *testing.T) {
+	chat := types.NewJID("123", types.DefaultUserServer)
+	sender := types.NewJID("456", types.DefaultUserServer)
+	ts := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	patch := buildDeleteForMePatch(types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     chat,
+			Sender:   sender,
+			IsFromMe: false,
+		},
+		ID:        types.MessageID("mid"),
+		Timestamp: ts,
+	}, true)
+
+	if patch.Type != appstate.WAPatchRegularHigh {
+		t.Fatalf("patch type = %q", patch.Type)
+	}
+	if len(patch.Mutations) != 1 {
+		t.Fatalf("mutations = %d", len(patch.Mutations))
+	}
+	mut := patch.Mutations[0]
+	wantIndex := []string{appstate.IndexDeleteMessageForMe, chat.String(), "mid", "0", sender.String()}
+	for i, want := range wantIndex {
+		if mut.Index[i] != want {
+			t.Fatalf("index[%d] = %q, want %q", i, mut.Index[i], want)
+		}
+	}
+	action := mut.Value.GetDeleteMessageForMeAction()
+	if action == nil || !action.GetDeleteMedia() || action.GetMessageTimestamp() != ts.UnixMilli() {
+		t.Fatalf("delete-for-me action = %+v", action)
 	}
 }
 

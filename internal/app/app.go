@@ -48,6 +48,7 @@ type WAClient interface {
 	SendProtoMessage(ctx context.Context, to types.JID, msg *waProto.Message) (types.MessageID, error)
 	SendReaction(ctx context.Context, chat, sender types.JID, targetID types.MessageID, reaction string) (types.MessageID, error)
 	RevokeMessage(ctx context.Context, chat types.JID, targetID types.MessageID) (types.MessageID, error)
+	DeleteMessageForMe(ctx context.Context, info types.MessageInfo, deleteMedia bool) error
 	EditMessage(ctx context.Context, chat types.JID, targetID types.MessageID, text string) (types.MessageID, error)
 	Upload(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error)
 	DownloadMediaToFile(ctx context.Context, directPath string, encFileHash, fileHash, mediaKey []byte, fileLength uint64, mediaType, mmsType string, targetPath string) (int64, error)
@@ -58,6 +59,7 @@ type WAClient interface {
 	SetManualHistorySyncDownload(enabled bool)
 	DownloadHistorySync(ctx context.Context, notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error)
 	RequestHistorySyncOnDemand(ctx context.Context, lastKnown types.MessageInfo, count int) (types.MessageID, error)
+	FetchAppState(ctx context.Context, name string, fullSync, onlyIfNotSynced bool) error
 	RequestAppStateRecovery(ctx context.Context, name string) (types.MessageID, error)
 	Logout(ctx context.Context) error
 	LinkedJID() string

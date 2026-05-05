@@ -469,14 +469,19 @@ func newMessagesExportCmd(flags *rootFlags) *cobra.Command {
 func newMessagesDeleteCmd(flags *rootFlags) *cobra.Command {
 	var chat string
 	var id string
+	var forMe bool
+	var deleteMedia bool
 	postSendWait := postSendRetryReceiptWait
 
 	cmd := &cobra.Command{
 		Use:   "delete",
-		Short: "Delete one of your sent messages for everyone",
+		Short: "Delete a message for everyone or for you",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(chat) == "" || strings.TrimSpace(id) == "" {
 				return fmt.Errorf("--chat and --id are required")
+			}
+			if deleteMedia && !forMe {
+				return fmt.Errorf("--delete-media requires --for-me")
 			}
 			if err := flags.requireWritable(); err != nil {
 				return err
@@ -498,7 +503,11 @@ func newMessagesDeleteCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := validateMessageCanRevoke(msg); err != nil {
+			if !forMe {
+				if err := validateMessageCanRevoke(msg); err != nil {
+					return err
+				}
+			} else if err := validateMessageCanDeleteForMe(msg); err != nil {
 				return err
 			}
 			if err := a.Connect(ctx, false, nil); err != nil {
@@ -506,6 +515,32 @@ func newMessagesDeleteCmd(flags *rootFlags) *cobra.Command {
 			}
 			if err := warnRapidSendIfNeeded(a.StoreDir(), time.Now().UTC(), os.Stderr); err != nil {
 				return err
+			}
+			if forMe {
+				info, err := messageInfoForDeleteForMe(msg, chatJID)
+				if err != nil {
+					return err
+				}
+				if _, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (struct{}, error) {
+					return struct{}{}, a.WA().DeleteMessageForMe(ctx, info, deleteMedia)
+				}); err != nil {
+					return err
+				}
+				if err := a.DB().MarkMessageDeletedForMe(msg.ChatJID, msg.MsgID, msg.SenderJID, msg.FromMe, time.Now().UTC()); err != nil {
+					return fmt.Errorf("store deleted-for-me message state: %w", err)
+				}
+
+				waitForPostSendRetryReceipts(ctx, postSendWait)
+
+				if flags.asJSON {
+					return out.WriteJSON(os.Stdout, map[string]any{
+						"deleted_for_me": true,
+						"to":             chatJID.String(),
+						"target":         msg.MsgID,
+					})
+				}
+				fmt.Fprintf(os.Stdout, "Deleted message %s for me in %s\n", msg.MsgID, chatJID.String())
+				return nil
 			}
 			sentID, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (types.MessageID, error) {
 				return a.WA().RevokeMessage(ctx, chatJID, types.MessageID(msg.MsgID))
@@ -533,6 +568,8 @@ func newMessagesDeleteCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&chat, "chat", "", "chat JID, phone number, or contact/group/chat name")
 	cmd.Flags().StringVar(&id, "id", "", "message ID to delete")
+	cmd.Flags().BoolVar(&forMe, "for-me", false, "delete the message only for this WhatsApp account")
+	cmd.Flags().BoolVar(&deleteMedia, "delete-media", false, "also remove local media when used with --for-me")
 	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after delete so retry receipts can be handled (0 disables)")
 	return cmd
 }
@@ -631,10 +668,49 @@ func validateMessageCanRevoke(msg store.Message) error {
 	if msg.Revoked {
 		return fmt.Errorf("message %s is already deleted", msg.MsgID)
 	}
+	if msg.DeletedForMe {
+		return fmt.Errorf("message %s was deleted for me", msg.MsgID)
+	}
 	if !msg.FromMe {
 		return fmt.Errorf("message %s was not sent by me", msg.MsgID)
 	}
 	return nil
+}
+
+func validateMessageCanDeleteForMe(msg store.Message) error {
+	if msg.Revoked {
+		return fmt.Errorf("message %s is already deleted", msg.MsgID)
+	}
+	if msg.DeletedForMe {
+		return fmt.Errorf("message %s was deleted for me", msg.MsgID)
+	}
+	return nil
+}
+
+func messageInfoForDeleteForMe(msg store.Message, chat types.JID) (types.MessageInfo, error) {
+	sender := types.EmptyJID
+	if strings.TrimSpace(msg.SenderJID) != "" {
+		parsed, err := types.ParseJID(msg.SenderJID)
+		if err != nil {
+			return types.MessageInfo{}, fmt.Errorf("stored sender JID is invalid: %w", err)
+		}
+		sender = parsed
+	} else if !msg.FromMe && chat.Server == types.DefaultUserServer {
+		sender = chat
+	}
+	if !msg.FromMe && chat.Server == types.GroupServer && sender.IsEmpty() {
+		return types.MessageInfo{}, fmt.Errorf("stored sender JID is required to delete a group message for me")
+	}
+	return types.MessageInfo{
+		MessageSource: types.MessageSource{
+			Chat:     chat,
+			Sender:   sender,
+			IsFromMe: msg.FromMe,
+			IsGroup:  chat.Server == types.GroupServer,
+		},
+		ID:        types.MessageID(msg.MsgID),
+		Timestamp: msg.Timestamp,
+	}, nil
 }
 
 func validateMessageCanEdit(msg store.Message, now time.Time) error {

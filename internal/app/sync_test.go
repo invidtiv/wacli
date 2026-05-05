@@ -197,6 +197,109 @@ func TestLiveSyncIgnoresHistorySyncProtocolMessage(t *testing.T) {
 	}
 }
 
+func TestDeleteForMeEventMarksMessageDeletedForCurrentUser(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	chat := types.NewJID("15551234567", types.DefaultUserServer)
+	base := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)
+	if err := a.db.UpsertChat(chat.String(), "dm", "Alice", base); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	if err := a.db.UpsertMessage(store.UpsertMessageParams{
+		ChatJID:     chat.String(),
+		MsgID:       "m-delete-for-me",
+		SenderJID:   chat.String(),
+		Timestamp:   base,
+		DisplayText: "secret local copy",
+		Text:        "secret local copy",
+	}); err != nil {
+		t.Fatalf("UpsertMessage: %v", err)
+	}
+
+	a.handleDeleteForMeEvent(context.Background(), &events.DeleteForMe{
+		ChatJID:   chat,
+		MessageID: "m-delete-for-me",
+		Timestamp: base.Add(time.Minute),
+		IsFromMe:  false,
+	})
+
+	msg, err := a.db.GetMessage(chat.String(), "m-delete-for-me")
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	if msg.Revoked || !msg.DeletedForMe {
+		t.Fatalf("flags revoked=%v deleted_for_me=%v", msg.Revoked, msg.DeletedForMe)
+	}
+	if msg.Text != "" || msg.DisplayText != store.DeletedForMeMessageDisplayText {
+		t.Fatalf("text=%q display=%q", msg.Text, msg.DisplayText)
+	}
+	listed, err := a.db.ListMessages(store.ListMessagesParams{ChatJID: chat.String(), Limit: 10})
+	if err != nil {
+		t.Fatalf("ListMessages: %v", err)
+	}
+	if len(listed) != 0 {
+		t.Fatalf("deleted-for-me message listed: %+v", listed)
+	}
+}
+
+func TestSyncFetchesRegularHighAppStateDeltasAfterConnect(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	chat := types.NewJID("15551234567", types.DefaultUserServer)
+	base := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)
+	if err := a.db.UpsertChat(chat.String(), "dm", "Alice", base); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	if err := a.db.UpsertMessage(store.UpsertMessageParams{
+		ChatJID:   chat.String(),
+		MsgID:     "m-offline-delete-for-me",
+		SenderJID: chat.String(),
+		Timestamp: base,
+		Text:      "gone locally",
+	}); err != nil {
+		t.Fatalf("UpsertMessage: %v", err)
+	}
+	f.appStateFetchEvent = func(name string, fullSync, onlyIfNotSynced bool) interface{} {
+		if name != string(appstate.WAPatchRegularHigh) || fullSync || onlyIfNotSynced {
+			return nil
+		}
+		return &events.DeleteForMe{
+			ChatJID:   chat,
+			MessageID: "m-offline-delete-for-me",
+			Timestamp: base.Add(time.Minute),
+			IsFromMe:  false,
+		}
+	}
+
+	res, err := a.Sync(context.Background(), SyncOptions{
+		Mode:     SyncModeOnce,
+		IdleExit: 10 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if res.MessagesStored != 0 {
+		t.Fatalf("messages stored = %d, want 0", res.MessagesStored)
+	}
+	f.mu.Lock()
+	fetches := append([]fakeAppStateFetch(nil), f.appStateFetches...)
+	f.mu.Unlock()
+	if len(fetches) != 1 || fetches[0].name != string(appstate.WAPatchRegularHigh) || fetches[0].fullSync || fetches[0].onlyIfNotSynced {
+		t.Fatalf("app state fetches = %+v", fetches)
+	}
+	msg, err := a.db.GetMessage(chat.String(), "m-offline-delete-for-me")
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	if !msg.DeletedForMe {
+		t.Fatalf("message was not marked deleted for me: %+v", msg)
+	}
+}
+
 func TestHistorySyncDecryptsEncryptedReaction(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeWA()

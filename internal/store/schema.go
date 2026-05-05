@@ -79,6 +79,7 @@ const coreSchemaSQL = `
 		local_path TEXT,
 		downloaded_at INTEGER,
 		revoked INTEGER NOT NULL DEFAULT 0,
+		deleted_for_me INTEGER NOT NULL DEFAULT 0,
 		UNIQUE(chat_jid, msg_id),
 		FOREIGN KEY (chat_jid) REFERENCES chats(jid) ON DELETE CASCADE
 	);

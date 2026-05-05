@@ -15,6 +15,7 @@ import (
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
+	"go.mau.fi/whatsmeow/proto/waSyncAction"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -254,6 +255,43 @@ func (c *Client) RevokeMessage(ctx context.Context, chat types.JID, targetID typ
 	return resp.ID, nil
 }
 
+func (c *Client) DeleteMessageForMe(ctx context.Context, info types.MessageInfo, deleteMedia bool) error {
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil || !cli.IsConnected() {
+		return fmt.Errorf("not connected")
+	}
+	if info.Chat.IsEmpty() || strings.TrimSpace(string(info.ID)) == "" {
+		return fmt.Errorf("message chat and ID are required")
+	}
+	return cli.SendAppState(ctx, buildDeleteForMePatch(info, deleteMedia))
+}
+
+func buildDeleteForMePatch(info types.MessageInfo, deleteMedia bool) appstate.PatchInfo {
+	fromMe := "0"
+	if info.IsFromMe {
+		fromMe = "1"
+	}
+	sender := "0"
+	if !info.IsFromMe && !info.Sender.IsEmpty() && info.Chat.User != info.Sender.User {
+		sender = info.Sender.String()
+	}
+	return appstate.PatchInfo{
+		Type: appstate.WAPatchRegularHigh,
+		Mutations: []appstate.MutationInfo{{
+			Index:   []string{appstate.IndexDeleteMessageForMe, info.Chat.String(), string(info.ID), fromMe, sender},
+			Version: 2,
+			Value: &waSyncAction.SyncActionValue{
+				DeleteMessageForMeAction: &waSyncAction.DeleteMessageForMeAction{
+					DeleteMedia:      proto.Bool(deleteMedia),
+					MessageTimestamp: proto.Int64(info.Timestamp.UnixMilli()),
+				},
+			},
+		}},
+	}
+}
+
 func (c *Client) EditMessage(ctx context.Context, chat types.JID, targetID types.MessageID, text string) (types.MessageID, error) {
 	c.mu.Lock()
 	cli := c.client
@@ -364,6 +402,20 @@ func (c *Client) RequestAppStateRecovery(ctx context.Context, name string) (type
 		return "", err
 	}
 	return resp.ID, nil
+}
+
+func (c *Client) FetchAppState(ctx context.Context, name string, fullSync, onlyIfNotSynced bool) error {
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil || !cli.IsConnected() {
+		return fmt.Errorf("not connected")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("app state collection name is required")
+	}
+	return cli.FetchAppState(ctx, appstate.WAPatchName(name), fullSync, onlyIfNotSynced)
 }
 
 func (c *Client) GetContact(ctx context.Context, jid types.JID) (types.ContactInfo, error) {

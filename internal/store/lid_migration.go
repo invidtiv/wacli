@@ -150,7 +150,8 @@ func migrateLIDMessagesToPN(tx *sql.Tx, lidJID, pnJID string) error {
 			chat_jid, chat_name, msg_id, sender_jid, sender_name, ts, from_me, text, display_text,
 			is_forwarded, forwarding_score, reaction_to_id, reaction_emoji,
 			media_type, media_caption, filename, mime_type, direct_path,
-			media_key, file_sha256, file_enc_sha256, file_length, local_path, downloaded_at
+			media_key, file_sha256, file_enc_sha256, file_length, local_path, downloaded_at,
+			revoked, deleted_for_me
 		)
 		SELECT
 			?,
@@ -176,7 +177,9 @@ func migrateLIDMessagesToPN(tx *sql.Tx, lidJID, pnJID string) error {
 			file_enc_sha256,
 			file_length,
 			local_path,
-			downloaded_at
+			downloaded_at,
+			revoked,
+			deleted_for_me
 		FROM messages
 		WHERE chat_jid = ?
 		ON CONFLICT(chat_jid, msg_id) DO UPDATE SET
@@ -185,24 +188,26 @@ func migrateLIDMessagesToPN(tx *sql.Tx, lidJID, pnJID string) error {
 			sender_name = COALESCE(NULLIF(messages.sender_name, ''), excluded.sender_name),
 			ts = max(messages.ts, excluded.ts),
 			from_me = messages.from_me,
-			text = COALESCE(NULLIF(messages.text, ''), excluded.text),
-			display_text = COALESCE(NULLIF(messages.display_text, ''), excluded.display_text),
+			text = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.text, ''), excluded.text) END,
+			display_text = CASE WHEN messages.deleted_for_me != 0 OR excluded.deleted_for_me != 0 THEN ? WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN ? ELSE COALESCE(NULLIF(messages.display_text, ''), excluded.display_text) END,
 			is_forwarded = CASE WHEN messages.is_forwarded != 0 THEN messages.is_forwarded ELSE excluded.is_forwarded END,
 			forwarding_score = max(messages.forwarding_score, excluded.forwarding_score),
 			reaction_to_id = COALESCE(NULLIF(messages.reaction_to_id, ''), excluded.reaction_to_id),
 			reaction_emoji = COALESCE(NULLIF(messages.reaction_emoji, ''), excluded.reaction_emoji),
-			media_type = COALESCE(NULLIF(messages.media_type, ''), excluded.media_type),
-			media_caption = COALESCE(NULLIF(messages.media_caption, ''), excluded.media_caption),
-			filename = COALESCE(NULLIF(messages.filename, ''), excluded.filename),
-			mime_type = COALESCE(NULLIF(messages.mime_type, ''), excluded.mime_type),
-			direct_path = COALESCE(NULLIF(messages.direct_path, ''), excluded.direct_path),
-			media_key = CASE WHEN messages.media_key IS NOT NULL AND length(messages.media_key) > 0 THEN messages.media_key ELSE excluded.media_key END,
-			file_sha256 = CASE WHEN messages.file_sha256 IS NOT NULL AND length(messages.file_sha256) > 0 THEN messages.file_sha256 ELSE excluded.file_sha256 END,
-			file_enc_sha256 = CASE WHEN messages.file_enc_sha256 IS NOT NULL AND length(messages.file_enc_sha256) > 0 THEN messages.file_enc_sha256 ELSE excluded.file_enc_sha256 END,
-			file_length = CASE WHEN messages.file_length IS NOT NULL AND messages.file_length > 0 THEN messages.file_length ELSE excluded.file_length END,
-			local_path = COALESCE(NULLIF(messages.local_path, ''), excluded.local_path),
-			downloaded_at = CASE WHEN messages.downloaded_at IS NOT NULL AND messages.downloaded_at > 0 THEN messages.downloaded_at ELSE excluded.downloaded_at END
-	`, pnJID, lidJID, pnJID, lidJID); err != nil {
+			media_type = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.media_type, ''), excluded.media_type) END,
+			media_caption = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.media_caption, ''), excluded.media_caption) END,
+			filename = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.filename, ''), excluded.filename) END,
+			mime_type = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.mime_type, ''), excluded.mime_type) END,
+			direct_path = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.direct_path, ''), excluded.direct_path) END,
+			media_key = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL WHEN messages.media_key IS NOT NULL AND length(messages.media_key) > 0 THEN messages.media_key ELSE excluded.media_key END,
+			file_sha256 = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL WHEN messages.file_sha256 IS NOT NULL AND length(messages.file_sha256) > 0 THEN messages.file_sha256 ELSE excluded.file_sha256 END,
+			file_enc_sha256 = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL WHEN messages.file_enc_sha256 IS NOT NULL AND length(messages.file_enc_sha256) > 0 THEN messages.file_enc_sha256 ELSE excluded.file_enc_sha256 END,
+			file_length = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL WHEN messages.file_length IS NOT NULL AND messages.file_length > 0 THEN messages.file_length ELSE excluded.file_length END,
+			local_path = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL ELSE COALESCE(NULLIF(messages.local_path, ''), excluded.local_path) END,
+			downloaded_at = CASE WHEN messages.revoked != 0 OR messages.deleted_for_me != 0 OR excluded.revoked != 0 OR excluded.deleted_for_me != 0 THEN NULL WHEN messages.downloaded_at IS NOT NULL AND messages.downloaded_at > 0 THEN messages.downloaded_at ELSE excluded.downloaded_at END,
+			revoked = CASE WHEN messages.revoked != 0 OR excluded.revoked != 0 THEN 1 ELSE 0 END,
+			deleted_for_me = CASE WHEN messages.deleted_for_me != 0 OR excluded.deleted_for_me != 0 THEN 1 ELSE 0 END
+	`, pnJID, lidJID, pnJID, lidJID, DeletedForMeMessageDisplayText, DeletedMessageDisplayText); err != nil {
 		return fmt.Errorf("merge lid messages into pn chat: %w", err)
 	}
 

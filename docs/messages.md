@@ -14,7 +14,7 @@ wacli messages export [--chat JID] [--limit N] [--after DATE] [--before DATE] [-
 wacli messages show --chat JID --id MSG_ID
 wacli messages context --chat JID --id MSG_ID [--before N] [--after N]
 wacli messages edit --chat JID --id MSG_ID --message TEXT [--post-send-wait 2s]
-wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]
+wacli messages delete --chat JID --id MSG_ID [--for-me] [--delete-media] [--post-send-wait 2s]
 ```
 
 ## Search
@@ -42,8 +42,9 @@ wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]
 
 - `messages edit` updates one of your own recent sent text messages. WhatsApp only accepts edits inside its current edit window.
 - `messages delete` revokes one of your own sent messages for everyone.
-- Both commands look up the target in the local store first, reject messages not sent by you, and honor `--read-only`/`WACLI_READONLY`.
-- Deleted messages are kept as local tombstones for direct `messages show`, but are hidden from normal list/search/starred/export results.
+- `messages delete --for-me` removes a stored message only for your WhatsApp account using WhatsApp's `deleteMessageForMe` app-state patch; it can target messages sent by you or by others. `--delete-media` is only valid with `--for-me`.
+- Both commands look up the target in the local store first and honor `--read-only`/`WACLI_READONLY`. Delete-for-everyone and edit require a message sent by you.
+- Deleted messages and WhatsApp delete-for-me events are kept as local tombstones for direct `messages show`, but are hidden from normal list/search/starred/export results.
 
 ## LID mapping
 
@@ -62,4 +63,5 @@ wacli messages show --chat 1234567890@s.whatsapp.net --id ABC123
 wacli messages context --chat 1234567890@s.whatsapp.net --id ABC123 --before 3 --after 3
 wacli messages edit --chat 1234567890@s.whatsapp.net --id ABC123 --message "updated text"
 wacli messages delete --chat 1234567890@s.whatsapp.net --id ABC123
+wacli messages delete --chat 1234567890@s.whatsapp.net --id ABC123 --for-me
 ```

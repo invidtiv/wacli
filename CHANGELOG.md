@@ -13,6 +13,7 @@
 - Diagnostics: show linked JID and local store counts in `auth status` and `doctor`. (#149 — thanks @draix)
 - Messages: add `messages list --sender`, `--from-me`, `--from-them`, and `--asc` filters. (#153 — thanks @draix)
 - Messages: track WhatsApp starred state and add `messages starred` plus `--starred` filters for list/search. (#17 — thanks @dan-dr)
+- Messages: track WhatsApp delete-for-me app-state events as local tombstones and add `messages delete --for-me`. (#64 — thanks @vlassance)
 - Messages: add `messages edit` and `messages delete` for editing or revoking your own sent messages. (#80 — thanks @frapeti)
 - Messages: add `messages search --has-media`, `--type text`, case-insensitive media types, and validation for contradictory filters. (#128 — thanks @ImLukeF and @Mansehej)
 - Messages: add JSON export with `messages export --after` and `--before` filters.

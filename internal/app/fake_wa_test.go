@@ -43,9 +43,18 @@ type fakeWA struct {
 	onDemandEvent       func(lastKnown types.MessageInfo, count int) interface{}
 	downloadHistory     func(notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error)
 	appStateRecoveryErr error
+	appStateFetchErr    error
+	appStateFetchEvent  func(name string, fullSync, onlyIfNotSynced bool) interface{}
 
 	manualHistorySyncCalls []bool
 	appStateRecoveries     []string
+	appStateFetches        []fakeAppStateFetch
+}
+
+type fakeAppStateFetch struct {
+	name            string
+	fullSync        bool
+	onlyIfNotSynced bool
 }
 
 func newFakeWA() *fakeWA {
@@ -392,6 +401,31 @@ func (f *fakeWA) RequestAppStateRecovery(ctx context.Context, name string) (type
 	}
 	f.appStateRecoveries = append(f.appStateRecoveries, name)
 	return types.MessageID("recovery-req"), nil
+}
+
+func (f *fakeWA) DeleteMessageForMe(ctx context.Context, info types.MessageInfo, deleteMedia bool) error {
+	return nil
+}
+
+func (f *fakeWA) FetchAppState(ctx context.Context, name string, fullSync, onlyIfNotSynced bool) error {
+	f.mu.Lock()
+	f.appStateFetches = append(f.appStateFetches, fakeAppStateFetch{
+		name:            name,
+		fullSync:        fullSync,
+		onlyIfNotSynced: onlyIfNotSynced,
+	})
+	err := f.appStateFetchErr
+	eventCB := f.appStateFetchEvent
+	f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if eventCB != nil {
+		if evt := eventCB(name, fullSync, onlyIfNotSynced); evt != nil {
+			f.emit(evt)
+		}
+	}
+	return nil
 }
 
 func (f *fakeWA) Logout(ctx context.Context) error {

@@ -506,6 +506,69 @@ func TestMessageRevokedTombstoneIsHiddenFromListAndSearch(t *testing.T) {
 	}
 }
 
+func TestMessageDeletedForMeTombstoneIsHiddenFromListAndSearch(t *testing.T) {
+	db := openTestDB(t)
+
+	chat := "chat@s.whatsapp.net"
+	now := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	if err := db.UpsertChat(chat, "dm", "Alice", now); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	for _, row := range []UpsertMessageParams{
+		{ChatJID: chat, MsgID: "before", SenderJID: chat, Timestamp: now, Text: "before"},
+		{ChatJID: chat, MsgID: "delete", SenderJID: chat, Timestamp: now.Add(time.Second), Text: "local secret needle", DisplayText: "local secret needle"},
+		{ChatJID: chat, MsgID: "after", SenderJID: chat, Timestamp: now.Add(2 * time.Second), Text: "after"},
+	} {
+		if err := db.UpsertMessage(row); err != nil {
+			t.Fatalf("UpsertMessage %s: %v", row.MsgID, err)
+		}
+	}
+	if err := db.MarkMessageDeletedForMe(chat, "delete", chat, false, now.Add(3*time.Second)); err != nil {
+		t.Fatalf("MarkMessageDeletedForMe: %v", err)
+	}
+	if err := db.UpsertMessage(UpsertMessageParams{
+		ChatJID: chat, MsgID: "delete", SenderJID: chat, Timestamp: now.Add(4 * time.Second), Text: "resynced secret needle",
+	}); err != nil {
+		t.Fatalf("UpsertMessage resync: %v", err)
+	}
+
+	deleted, err := db.GetMessage(chat, "delete")
+	if err != nil {
+		t.Fatalf("GetMessage deleted: %v", err)
+	}
+	if deleted.Revoked || !deleted.DeletedForMe {
+		t.Fatalf("deleted flags revoked=%v deleted_for_me=%v", deleted.Revoked, deleted.DeletedForMe)
+	}
+	if deleted.Text != "" || deleted.DisplayText != DeletedForMeMessageDisplayText {
+		t.Fatalf("deleted text=%q display=%q", deleted.Text, deleted.DisplayText)
+	}
+	if !deleted.Timestamp.Equal(now.Add(time.Second)) {
+		t.Fatalf("deleted timestamp = %s, want original message timestamp", deleted.Timestamp)
+	}
+
+	msgs, err := db.ListMessages(ListMessagesParams{ChatJID: chat, Limit: 10, Asc: true})
+	if err != nil {
+		t.Fatalf("ListMessages: %v", err)
+	}
+	if got := messageIDs(msgs); got != "before,after" {
+		t.Fatalf("listed ids = %s", got)
+	}
+	found, err := db.SearchMessages(SearchMessagesParams{Query: "secret", ChatJID: chat, Limit: 10})
+	if err != nil {
+		t.Fatalf("SearchMessages: %v", err)
+	}
+	if len(found) != 0 {
+		t.Fatalf("deleted-for-me message appeared in search: %+v", found)
+	}
+	ctx, err := db.MessageContext(chat, "before", 0, 5)
+	if err != nil {
+		t.Fatalf("MessageContext: %v", err)
+	}
+	if got := messageIDs(ctx); got != "before,after" {
+		t.Fatalf("context ids = %s", got)
+	}
+}
+
 func TestUpdateMessageTextClearsMediaState(t *testing.T) {
 	db := openTestDB(t)
 

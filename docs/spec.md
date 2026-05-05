@@ -102,7 +102,7 @@ Immediately after QR pairing success, `wacli auth` runs a bootstrap sync:
 - `groups`
   - `jid` (PK), `name`, `owner_jid`, `created_ts`, …
 - `messages`
-  - `rowid` (PK), `chat_jid`, `msg_id`, `sender_jid`, `ts`, `from_me`, `text`, `media_type`, `media_caption`, `filename`, `mime_type`, `direct_path`, hashes/keys, …
+  - `rowid` (PK), `chat_jid`, `msg_id`, `sender_jid`, `ts`, `from_me`, `text`, `display_text`, `revoked`, `deleted_for_me`, `media_type`, `media_caption`, `filename`, `mime_type`, `direct_path`, hashes/keys, …
   - unique constraint: (`chat_jid`, `msg_id`)
 - `contact_aliases` (local management)
   - `jid` (PK/FK), `alias`, `notes`, `tags` (or join table)
@@ -119,6 +119,7 @@ Approach:
   - media caption
   - document filename
   - (optionally) denormalized sender/chat names for convenience
+- Revoked and delete-for-me tombstones are excluded from list/search/starred/export results and FTS rows, but remain addressable by direct `messages show`.
 
 Query behavior:
 
@@ -181,7 +182,7 @@ WhatsApp Web history is best-effort. If you want to try fetching *older* message
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
 - `wacli messages edit --chat JID --id MSG_ID --message TEXT [--post-send-wait 2s]`
-- `wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]`
+- `wacli messages delete --chat JID --id MSG_ID [--for-me] [--delete-media] [--post-send-wait 2s]`
 
 ### Send
 

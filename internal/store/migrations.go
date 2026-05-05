@@ -22,6 +22,7 @@ var schemaMigrations = []migration{
 	{version: 6, name: "messages reaction columns", up: migrateMessagesReactionColumns},
 	{version: 7, name: "starred messages", up: migrateStarredMessages},
 	{version: 8, name: "messages revoked column", up: migrateMessagesRevokedColumn},
+	{version: 9, name: "messages deleted_for_me column", up: migrateMessagesDeletedForMeColumn},
 }
 
 func (d *DB) ensureSchema() error {
@@ -170,6 +171,19 @@ func migrateMessagesRevokedColumn(d *DB) error {
 	return migrateMessagesFTS(d)
 }
 
+func migrateMessagesDeletedForMeColumn(d *DB) error {
+	hasDeletedForMe, err := d.tableHasColumn("messages", "deleted_for_me")
+	if err != nil {
+		return err
+	}
+	if !hasDeletedForMe {
+		if _, err := d.sql.Exec(`ALTER TABLE messages ADD COLUMN deleted_for_me INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add messages.deleted_for_me column: %w", err)
+		}
+	}
+	return migrateMessagesFTS(d)
+}
+
 func migrateMessagesFTS(d *DB) error {
 	ftsExists, err := d.tableExists("messages_fts")
 	if err != nil {
@@ -213,7 +227,7 @@ func migrateMessagesFTS(d *DB) error {
 		DROP TRIGGER IF EXISTS messages_ad;
 		DROP TRIGGER IF EXISTS messages_au;
 
-		CREATE TRIGGER messages_ai AFTER INSERT ON messages WHEN new.revoked = 0 BEGIN
+		CREATE TRIGGER messages_ai AFTER INSERT ON messages WHEN new.revoked = 0 AND new.deleted_for_me = 0 BEGIN
 			INSERT INTO messages_fts(rowid, text, media_caption, filename, chat_name, sender_name, display_text)
 			VALUES (new.rowid, COALESCE(new.text,''), COALESCE(new.media_caption,''), COALESCE(new.filename,''), COALESCE(new.chat_name,''), COALESCE(new.sender_name,''), COALESCE(new.display_text,''));
 		END;
@@ -226,7 +240,7 @@ func migrateMessagesFTS(d *DB) error {
 			DELETE FROM messages_fts WHERE rowid = old.rowid;
 			INSERT INTO messages_fts(rowid, text, media_caption, filename, chat_name, sender_name, display_text)
 			SELECT new.rowid, COALESCE(new.text,''), COALESCE(new.media_caption,''), COALESCE(new.filename,''), COALESCE(new.chat_name,''), COALESCE(new.sender_name,''), COALESCE(new.display_text,'')
-			WHERE new.revoked = 0;
+			WHERE new.revoked = 0 AND new.deleted_for_me = 0;
 		END;
 	`); err != nil {
 		d.ftsEnabled = false
@@ -244,7 +258,7 @@ func migrateMessagesFTS(d *DB) error {
 			       COALESCE(sender_name,''),
 			       COALESCE(display_text,'')
 			FROM messages
-			WHERE revoked = 0
+			WHERE revoked = 0 AND deleted_for_me = 0
 		`); err != nil {
 			d.ftsEnabled = false
 			return nil

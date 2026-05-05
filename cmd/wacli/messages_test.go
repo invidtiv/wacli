@@ -241,9 +241,31 @@ func TestMessagesEditValidation(t *testing.T) {
 	}
 
 	msg.FromMe = true
+	msg.DeletedForMe = true
+	msg.Timestamp = now.Add(-time.Minute)
+	if err := validateMessageCanEdit(msg, now); err == nil || !strings.Contains(err.Error(), "deleted for me") {
+		t.Fatalf("deleted-for-me error = %v", err)
+	}
+
+	msg.DeletedForMe = false
 	msg.Timestamp = now.Add(-21 * time.Minute)
 	if err := validateMessageCanEdit(msg, now); err == nil || !strings.Contains(err.Error(), "edit window") {
 		t.Fatalf("old message error = %v", err)
+	}
+}
+
+func TestMessagesDeleteForMeValidation(t *testing.T) {
+	msg := store.Message{MsgID: "mid", FromMe: false}
+	if err := validateMessageCanDeleteForMe(msg); err != nil {
+		t.Fatalf("validateMessageCanDeleteForMe: %v", err)
+	}
+	if err := validateMessageCanRevoke(msg); err == nil || !strings.Contains(err.Error(), "not sent by me") {
+		t.Fatalf("revoke from-them error = %v", err)
+	}
+
+	msg.DeletedForMe = true
+	if err := validateMessageCanDeleteForMe(msg); err == nil || !strings.Contains(err.Error(), "deleted for me") {
+		t.Fatalf("deleted-for-me error = %v", err)
 	}
 }
 

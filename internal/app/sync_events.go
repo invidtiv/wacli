@@ -15,6 +15,7 @@ import (
 	"github.com/steipete/wacli/internal/wa"
 	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
 
@@ -62,6 +63,9 @@ func (a *App) addSyncEventHandler(ctx context.Context, opts SyncOptions, message
 		case *events.Star:
 			lastEvent.Store(nowUTC().UnixNano())
 			a.handleStarEvent(ctx, v)
+		case *events.DeleteForMe:
+			lastEvent.Store(nowUTC().UnixNano())
+			a.handleDeleteForMeEvent(ctx, v)
 		case *events.Connected:
 			a.emitOrPrint("connected", nil, "\nConnected.\n")
 		case *events.Disconnected:
@@ -74,6 +78,39 @@ func (a *App) addSyncEventHandler(ctx context.Context, opts SyncOptions, message
 			a.handleAppStateSyncError(ctx, v, &appStateRecoveries)
 		}
 	})
+}
+
+func (a *App) handleDeleteForMeEvent(ctx context.Context, evt *events.DeleteForMe) {
+	if evt == nil || evt.ChatJID.IsEmpty() || strings.TrimSpace(evt.MessageID) == "" {
+		return
+	}
+	chat := a.canonicalStoreJID(ctx, evt.ChatJID)
+	chatJID := canonicalJIDString(chat)
+	if err := a.db.UpsertChat(chatJID, chatKind(chat), a.wa.ResolveChatName(ctx, chat, ""), evt.Timestamp); err != nil {
+		a.emitWarning(
+			"delete_for_me_chat_store_failed",
+			fmt.Sprintf("warning: failed to store chat for delete-for-me message %s: %v", evt.MessageID, err),
+			map[string]any{"message_id": evt.MessageID, "error": err.Error()},
+		)
+		return
+	}
+
+	senderJID := ""
+	if !evt.IsFromMe {
+		switch {
+		case !evt.SenderJID.IsEmpty():
+			senderJID = canonicalJIDString(a.canonicalStoreJID(ctx, evt.SenderJID))
+		case chat.Server == types.DefaultUserServer:
+			senderJID = chatJID
+		}
+	}
+	if err := a.db.MarkMessageDeletedForMe(chatJID, evt.MessageID, senderJID, evt.IsFromMe, evt.Timestamp); err != nil {
+		a.emitWarning(
+			"delete_for_me_store_failed",
+			fmt.Sprintf("warning: failed to store delete-for-me state for message %s: %v", evt.MessageID, err),
+			map[string]any{"message_id": evt.MessageID, "error": err.Error()},
+		)
+	}
 }
 
 func (a *App) handleStarEvent(ctx context.Context, evt *events.Star) {
