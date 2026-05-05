@@ -12,9 +12,11 @@ This is a third-party tool that uses the WhatsApp Web protocol via `whatsmeow` a
 
 ## Status
 
-Core implementation is in place. Start with [docs/overview.md](docs/overview.md) for the command map and [docs/spec.md](docs/spec.md) for design notes.
+Core implementation is in place. The full documentation site lives at [wacli.sh](https://wacli.sh). Start with [docs/overview.md](docs/overview.md) for the command map and [docs/spec.md](docs/spec.md) for design notes.
 
 ## Documentation
+
+Full docs site: <https://wacli.sh>.
 
 - [Overview](docs/overview.md): store model, global flags, common flow, command index.
 - [Auth](docs/auth.md): `auth`, `auth status`, `auth logout`.
