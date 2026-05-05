@@ -1,6 +1,6 @@
 # send
 
-Read when: sending text, files, quoted replies, or reactions.
+Read when: sending text, files, stickers, quoted replies, or reactions.
 
 `wacli send` requires authentication, a live connection, and writable mode. Send attempts are bounded and retry once after reconnect for known stale-session/usync timeout failures. After a successful send, wacli keeps the connection alive briefly so whatsmeow can handle retry receipts from devices that could not decrypt the first copy. Repeated send commands within 5 seconds print a stderr warning so tight loops make WhatsApp rate-limit/account-risk visible.
 
@@ -11,13 +11,14 @@ When `sync --follow` is already running for the same store, send commands delega
 ```bash
 wacli send text --to RECIPIENT --message TEXT [--pick N] [--mention USER] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send sticker --to RECIPIENT --file PATH [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send voice --to RECIPIENT --file PATH [--pick N] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]
 ```
 
 ## Recipients
 
-- `send text` and `send file` accept a JID, phone number, or synced contact/group/chat name.
+- `send text`, `send file`, `send sticker`, and `send voice` accept a JID, phone number, or synced contact/group/chat name.
 - If a name matches multiple recipients, interactive terminals prompt.
 - In scripts, use `--pick N` to choose a displayed match.
 - Phone numbers may use common formatting such as `+1 (234) 567-8900`.
@@ -42,6 +43,7 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 - MIME type is detected automatically unless `--mime` is set.
 - `--filename` changes the displayed document name.
 - Captions apply to images, videos, and documents.
+- `send sticker` requires 512x512 WebP input. Static stickers are capped at 100 KiB; animated stickers are capped at 500 KiB and are sent with animation metadata.
 - `send voice` is a shortcut for `send file --ptt`.
 - Voice notes require OGG/Opus audio (`audio/ogg; codecs=opus`).
 - When available, `ffprobe` sets voice-note duration and `ffmpeg` generates the 64-sample waveform from decoded PCM audio.
@@ -55,6 +57,7 @@ wacli send text --to "Family" --message "hey @15551234567" --mention +1555123456
 wacli send text --to 1234567890 --message "replying" --reply-to ABC123
 wacli send file --to 1234567890 --file ./pic.jpg --caption "hi"
 wacli send file --to 1234567890 --file /tmp/report --filename report.pdf
+wacli send sticker --to 1234567890 --file ./sticker-512.webp
 wacli send voice --to 1234567890 --file ./voice.ogg
 wacli send react --to 1234567890 --id ABC123 --reaction "❤️"
 ```

@@ -22,7 +22,7 @@ Full docs site: <https://wacli.sh>.
 - [Auth](docs/auth.md): `auth`, `auth status`, `auth logout`.
 - [Sync](docs/sync.md): `sync --once`, `sync --follow`, refresh, media download.
 - [Messages](docs/messages.md): `messages list/search/starred/show/context`.
-- [Send](docs/send.md): `send text/file/react`, recipient resolution, replies.
+- [Send](docs/send.md): `send text/file/sticker/voice/react`, recipient resolution, replies.
 - [Media](docs/media.md): `media download`.
 - [Contacts](docs/contacts.md): `contacts search/show/refresh`, aliases, tags.
 - [Chats](docs/chats.md): `chats list/show`.
@@ -41,7 +41,7 @@ Full docs site: <https://wacli.sh>.
 - **Auth + sync**: `auth` shows QR login and bootstraps sync; `sync` is non-interactive, can run once or follow continuously, and can refresh contacts/groups.
 - **Offline message store**: local SQLite store with FTS5 search when available and LIKE fallback.
 - **Message tools**: list/search/show/context with chat, sender, direction, time, order, and media-type filters.
-- **Sending**: send text, mentions, quoted replies, and image/video/audio/document files with captions, MIME override, and custom display filenames. Sends keep a short retry-receipt grace window, and rapid repeated sends warn on stderr.
+- **Sending**: send text, mentions, quoted replies, stickers, and image/video/audio/document files with captions, MIME override, and custom display filenames. Sends keep a short retry-receipt grace window, and rapid repeated sends warn on stderr.
 - **Media**: download synced message media on demand, or download in the background during auth/sync; send-file uploads and downloads are capped at 100 MiB.
 - **Contacts/chats/groups**: search/show contacts, local aliases/tags, list/show chats, refresh/list/info/rename groups, manage participants, invite links, join, and leave; left groups are hidden after leave.
 - **Presence**: send typing/paused indicators.
@@ -131,6 +131,8 @@ pnpm wacli send file --to 1234567890 --file ./pic.jpg --caption "hi"
 pnpm wacli send file --to 1234567890 --file ./pic.jpg --caption "replying" --reply-to <message-id>
 # Or override display name
 pnpm wacli send file --to 1234567890 --file /tmp/abc123 --filename report.pdf
+# Send a 512x512 WebP sticker
+pnpm wacli send sticker --to 1234567890 --file ./sticker-512.webp
 # Send an OGG/Opus audio file as a native WhatsApp voice note
 pnpm wacli send voice --to 1234567890 --file ./voice.ogg
 
@@ -171,6 +173,7 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
 - `wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send sticker --to RECIPIENT --file PATH [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send voice --to RECIPIENT --file PATH [--pick N] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]`
 - `wacli media download --chat JID --id MSG_ID [--output PATH]`
@@ -198,7 +201,7 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli completion bash|zsh|fish|powershell [--no-descriptions]`
 - `wacli help [command]`
 
-`RECIPIENT` for `send text/file` accepts a JID, phone number, or synced contact/group/chat name. If a name is ambiguous, interactive terminals prompt; scripts can pass `--pick N`.
+`RECIPIENT` for `send text/file/sticker/voice` accepts a JID, phone number, or synced contact/group/chat name. If a name is ambiguous, interactive terminals prompt; scripts can pass `--pick N`.
 
 ## Storage
 

@@ -22,7 +22,7 @@ Read when: you need the user-facing command map, global flags, store model, or l
 - [auth](auth.md) - pair, inspect auth status, logout.
 - [sync](sync.md) - sync messages, contacts, groups, and optional media.
 - [messages](messages.md) - list, search, show, and contextualize stored messages.
-- [send](send.md) - send text, files, replies, and reactions.
+- [send](send.md) - send text, files, stickers, replies, and reactions.
 - [media](media.md) - download media attached to stored messages.
 - [contacts](contacts.md) - search contacts and manage local aliases/tags.
 - [chats](chats.md) - list and show known chats.
@@ -48,7 +48,7 @@ wacli send text --to mom --message "hello"
 
 Commands that accept `PHONE_OR_JID` accept a WhatsApp JID like `1234567890@s.whatsapp.net`, a group JID like `123456789@g.us`, or a phone number with common formatting such as `+1 (234) 567-8900`.
 
-`send text`, `send file`, and `send voice` also accept synced contact, group, or chat names through `RECIPIENT`. If a name is ambiguous, interactive terminals prompt; scripts can use `--pick N`.
+`send text`, `send file`, `send sticker`, and `send voice` also accept synced contact, group, or chat names through `RECIPIENT`. If a name is ambiguous, interactive terminals prompt; scripts can use `--pick N`.
 
 ## History limits
 

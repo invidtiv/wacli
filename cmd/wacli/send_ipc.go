@@ -183,6 +183,8 @@ func executeDelegatedSend(parent context.Context, a *app.App, req sendDelegateRe
 		return executeDelegatedText(ctx, a, req)
 	case "file", "voice":
 		return executeDelegatedFile(ctx, a, req)
+	case "sticker":
+		return executeDelegatedSticker(ctx, a, req)
 	case "react":
 		return executeDelegatedReact(ctx, a, req)
 	default:
@@ -254,6 +256,31 @@ func executeDelegatedFile(ctx context.Context, a *app.App, req sendDelegateReque
 	return res, nil
 }
 
+func executeDelegatedSticker(ctx context.Context, a *app.App, req sendDelegateRequest) (sendDelegateResponse, error) {
+	toJID, err := resolveRecipient(a, req.To, recipientOptions{pick: req.Pick, asJSON: true})
+	if err != nil {
+		return sendDelegateResponse{}, err
+	}
+	if err := warnRapidSendIfNeeded(a.StoreDir(), time.Now().UTC(), os.Stderr); err != nil {
+		return sendDelegateResponse{}, err
+	}
+	res, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (sendDelegateResponse, error) {
+		msgID, meta, err := sendSticker(ctx, a, toJID, req.File, sendStickerOptions{
+			replyTo:       req.ReplyTo,
+			replyToSender: req.ReplyToSender,
+		})
+		if err != nil {
+			return sendDelegateResponse{}, err
+		}
+		return sendDelegateResponse{OK: true, Sent: true, To: toJID.String(), ID: msgID, File: meta}, nil
+	})
+	if err != nil {
+		return sendDelegateResponse{}, err
+	}
+	waitForPostSendRetryReceipts(ctx, millisDuration(req.PostSendWaitMS, 0))
+	return res, nil
+}
+
 func executeDelegatedReact(ctx context.Context, a *app.App, req sendDelegateRequest) (sendDelegateResponse, error) {
 	chat, senderJID, err := reactionTarget(req.To, req.Sender)
 	if err != nil {
@@ -290,6 +317,8 @@ func writeDelegatedSendOutput(flags *rootFlags, kind string, resp sendDelegateRe
 	switch kind {
 	case "file":
 		fmt.Fprintf(os.Stdout, "Sent %s to %s (id %s)\n", resp.File["name"], resp.To, resp.ID)
+	case "sticker":
+		fmt.Fprintf(os.Stdout, "Sent sticker to %s (id %s)\n", resp.To, resp.ID)
 	case "voice":
 		fmt.Fprintf(os.Stdout, "Sent voice note to %s (id %s)\n", resp.To, resp.ID)
 	case "react":

@@ -6,7 +6,7 @@ import (
 )
 
 func TestMediaTypeFromString(t *testing.T) {
-	for _, tc := range []string{"image", "video", "audio", "document"} {
+	for _, tc := range []string{"image", "video", "audio", "document", "sticker"} {
 		if _, err := MediaTypeFromString(tc); err != nil {
 			t.Fatalf("expected %s to be supported: %v", tc, err)
 		}
