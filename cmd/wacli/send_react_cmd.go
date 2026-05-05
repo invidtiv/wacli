@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/steipete/wacli/internal/out"
+	"github.com/steipete/wacli/internal/store"
 	"github.com/steipete/wacli/internal/wa"
 	"go.mau.fi/whatsmeow/types"
 )
@@ -75,6 +76,10 @@ func newSendReactCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
+			now := time.Now().UTC()
+			chatName := a.WA().ResolveChatName(ctx, chat, "")
+			upsertSentReaction(a.DB(), chat, chatName, sentID, msgID, emoji, now)
+
 			waitForPostSendRetryReceipts(ctx, postSendWait)
 
 			if flags.asJSON {
@@ -119,4 +124,37 @@ func reactionTarget(to, sender string) (types.JID, types.JID, error) {
 		return types.JID{}, types.JID{}, fmt.Errorf("--sender is required for group reactions")
 	}
 	return chat, senderJID, nil
+}
+
+func upsertSentReaction(db *store.DB, chat types.JID, chatName string, sentID types.MessageID, targetID, emoji string, now time.Time) {
+	if db == nil || chat.IsEmpty() || sentID == "" {
+		return
+	}
+	_ = db.UpsertChat(chat.String(), chatKindFromJID(chat), chatName, now)
+	_ = db.UpsertMessage(store.UpsertMessageParams{
+		ChatJID:       chat.String(),
+		ChatName:      chatName,
+		MsgID:         string(sentID),
+		SenderName:    "me",
+		Timestamp:     now,
+		FromMe:        true,
+		DisplayText:   sentReactionDisplayText(db, chat.String(), targetID, emoji),
+		ReactionToID:  targetID,
+		ReactionEmoji: emoji,
+	})
+}
+
+func sentReactionDisplayText(db *store.DB, chatJID, targetID, emoji string) string {
+	display := "message"
+	if db != nil && strings.TrimSpace(chatJID) != "" && strings.TrimSpace(targetID) != "" {
+		if msg, err := db.GetMessage(chatJID, targetID); err == nil {
+			if text := strings.TrimSpace(messageText(msg)); text != "" {
+				display = text
+			}
+		}
+	}
+	if strings.TrimSpace(emoji) == "" {
+		return fmt.Sprintf("Reacted to %s", display)
+	}
+	return fmt.Sprintf("Reacted %s to %s", emoji, display)
 }

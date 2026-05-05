@@ -32,6 +32,7 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 - For unsynced group replies, pass `--reply-to-sender`.
 - `send react` defaults to thumbs-up.
 - Pass `--reaction ""` to clear a reaction.
+- Sent reactions are stored locally immediately, including reaction target and display text.
 - For group reactions, pass `--sender` for the original message sender.
 - Use `--post-send-wait 0` to disable the retry-receipt grace window for latency-sensitive scripts.
 

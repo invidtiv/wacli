@@ -188,6 +188,41 @@ func TestResolveReplySenderAllowsDirectMessageWithoutSender(t *testing.T) {
 	}
 }
 
+func TestUpsertSentReactionStoresDisplayText(t *testing.T) {
+	db := openSendTestDB(t)
+	chat := types.JID{User: "15551234567", Server: types.DefaultUserServer}
+	now := time.Date(2026, 5, 5, 6, 30, 0, 0, time.UTC)
+
+	if err := db.UpsertChat(chat.String(), "dm", "Alice", now); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	if err := db.UpsertMessage(store.UpsertMessageParams{
+		ChatJID:   chat.String(),
+		MsgID:     "target",
+		Timestamp: now.Add(-time.Second),
+		FromMe:    true,
+		Text:      "hello reaction target",
+	}); err != nil {
+		t.Fatalf("UpsertMessage target: %v", err)
+	}
+
+	upsertSentReaction(db, chat, "Alice", "react1", "target", "👍", now)
+
+	msg, err := db.GetMessage(chat.String(), "react1")
+	if err != nil {
+		t.Fatalf("GetMessage reaction: %v", err)
+	}
+	if !msg.FromMe || msg.SenderName != "me" {
+		t.Fatalf("unexpected sender fields: from_me=%v sender=%q", msg.FromMe, msg.SenderName)
+	}
+	if msg.ReactionToID != "target" || msg.ReactionEmoji != "👍" {
+		t.Fatalf("unexpected reaction fields: to=%q emoji=%q", msg.ReactionToID, msg.ReactionEmoji)
+	}
+	if msg.DisplayText != "Reacted 👍 to hello reaction target" {
+		t.Fatalf("display text = %q", msg.DisplayText)
+	}
+}
+
 func TestBuildReplyContextInfo(t *testing.T) {
 	db := openSendTestDB(t)
 	chat := types.JID{User: "12345", Server: types.GroupServer}

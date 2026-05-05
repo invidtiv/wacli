@@ -59,6 +59,7 @@
 - Search: keep FTS5 enabled after reopening existing databases with already-applied migrations. (#185 — thanks @iamhitarth)
 - Send: delegate send commands through a running `sync --follow` process instead of failing on the store lock. (#6, #48, #92)
 - Send: add `send text --reply-to` for quoted replies, with sender inference for synced group messages. (#154 — thanks @draix)
+- Send: store outgoing `send react` messages locally so `messages list/show/search` can see the sent reaction immediately.
 - Send: validate image uploads and include image dimensions plus a JPEG thumbnail for better client rendering.
 - Send: keep the connection alive briefly after successful sends so retry receipts can repair first-send session gaps. (#89 — thanks @alexph-dev)
 - Send: bound send attempts and reconnect once for stale-session/time-out failures instead of hanging indefinitely. (#115 — thanks @0xatrilla)
