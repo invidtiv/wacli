@@ -48,11 +48,11 @@ main{min-width:0;padding:32px clamp(20px,4.5vw,56px) 80px;max-width:1180px;margi
 .home-hero h1{font-size:3.25rem;line-height:1.04;letter-spacing:0;margin:0 0 .35em;font-weight:700;color:var(--ink)}
 .home-hero .lede{font-size:1.18rem;line-height:1.55;color:var(--text);margin:0 0 1.2em;max-width:60ch}
 .home-cta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 18px}
-.home-cta .btn{display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:10px 16px;font-weight:600;font-size:.92rem;text-decoration:none;transition:background .15s,border-color .15s,color .15s,transform .12s}
+.home-cta .btn{display:inline-flex;align-items:center;gap:7px;min-height:46px;border-radius:8px;padding:0 16px;font-weight:600;font-size:.92rem;text-decoration:none;transition:background .15s,border-color .15s,color .15s,transform .12s}
 .home-cta .btn-primary{background:var(--accent);color:var(--accent-on);border:1px solid var(--accent)}
 .home-cta .btn-primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);text-decoration:none;color:var(--accent-on)}
-.home-cta .btn-ghost{padding:10px 16px}
-.home-install{display:flex;align-items:center;gap:14px;background:var(--code-bg);color:var(--code-fg);border-radius:10px;padding:16px 14px 16px 22px;font:500 .95rem/1.2 "JetBrains Mono","SF Mono",ui-monospace,monospace;max-width:34em;border:1px solid var(--code-border)}
+.home-cta .btn-ghost{padding:0 16px}
+.home-install{display:flex;align-items:center;gap:14px;min-height:46px;background:var(--code-bg);color:var(--code-fg);border-radius:10px;padding:5px 10px 5px 18px;font:500 .95rem/1.2 "JetBrains Mono","SF Mono",ui-monospace,monospace;max-width:34em;border:1px solid var(--code-border)}
 .home-install .prompt{color:var(--prompt);user-select:none;flex:0 0 auto}
 .home-install code{flex:1 1 auto;background:transparent;border:0;color:var(--code-fg);font:inherit;padding:0;white-space:pre;overflow:auto}
 .home-services{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 18px}
