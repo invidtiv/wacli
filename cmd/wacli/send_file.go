@@ -1,9 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
 	"math"
 	"mime"
 	"net/http"
@@ -24,6 +31,7 @@ import (
 )
 
 const maxSendFileSize = 100 * 1024 * 1024
+const imageThumbnailMaxDimension = 96
 const voiceWaveformSamples = 64
 const voiceWaveformMax = 100
 
@@ -91,16 +99,11 @@ func sendFile(ctx context.Context, a interface {
 
 	switch mediaType {
 	case "image":
-		msg.ImageMessage = &waProto.ImageMessage{
-			URL:           proto.String(up.URL),
-			DirectPath:    proto.String(up.DirectPath),
-			MediaKey:      up.MediaKey,
-			FileEncSHA256: up.FileEncSHA256,
-			FileSHA256:    up.FileSHA256,
-			FileLength:    proto.Uint64(up.FileLength),
-			Mimetype:      proto.String(mimeType),
-			Caption:       proto.String(opts.caption),
+		imageMsg, err := newImageMessage(up, mimeType, opts.caption, data)
+		if err != nil {
+			return "", nil, err
 		}
+		msg.ImageMessage = imageMsg
 	case "video":
 		msg.VideoMessage = &waProto.VideoMessage{
 			URL:           proto.String(up.URL),
@@ -164,6 +167,83 @@ func sendFile(ctx context.Context, a interface {
 		"media":     mediaType,
 		"ptt":       strconv.FormatBool(opts.ptt),
 	}, nil
+}
+
+func newImageMessage(up whatsmeow.UploadResponse, mimeType, caption string, data []byte) (*waProto.ImageMessage, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("invalid image data: %w", err)
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 {
+		return nil, fmt.Errorf("invalid image dimensions: %dx%d", cfg.Width, cfg.Height)
+	}
+
+	msg := &waProto.ImageMessage{
+		URL:           proto.String(up.URL),
+		DirectPath:    proto.String(up.DirectPath),
+		MediaKey:      up.MediaKey,
+		FileEncSHA256: up.FileEncSHA256,
+		FileSHA256:    up.FileSHA256,
+		FileLength:    proto.Uint64(up.FileLength),
+		Mimetype:      proto.String(mimeType),
+		Caption:       proto.String(caption),
+		Height:        proto.Uint32(uint32(cfg.Height)),
+		Width:         proto.Uint32(uint32(cfg.Width)),
+	}
+	if thumbnail, err := imageJPEGThumbnail(data); err == nil && len(thumbnail) > 0 {
+		msg.JPEGThumbnail = thumbnail
+	}
+	return msg, nil
+}
+
+func imageJPEGThumbnail(data []byte) ([]byte, error) {
+	src, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	bounds := src.Bounds()
+	srcW, srcH := bounds.Dx(), bounds.Dy()
+	if srcW <= 0 || srcH <= 0 {
+		return nil, fmt.Errorf("invalid image dimensions: %dx%d", srcW, srcH)
+	}
+
+	dstW, dstH := scaledDimensions(srcW, srcH, imageThumbnailMaxDimension)
+	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	draw.Draw(dst, dst.Bounds(), &image.Uniform{C: color.White}, image.Point{}, draw.Src)
+	for y := 0; y < dstH; y++ {
+		for x := 0; x < dstW; x++ {
+			srcX := bounds.Min.X + x*srcW/dstW
+			srcY := bounds.Min.Y + y*srcH/dstH
+			dst.Set(x, y, src.At(srcX, srcY))
+		}
+	}
+
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, dst, &jpeg.Options{Quality: 75}); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+func scaledDimensions(width, height, maxDimension int) (int, int) {
+	if width <= 0 || height <= 0 {
+		return 0, 0
+	}
+	if maxDimension <= 0 || (width <= maxDimension && height <= maxDimension) {
+		return width, height
+	}
+	if width >= height {
+		scaledHeight := height * maxDimension / width
+		if scaledHeight < 1 {
+			scaledHeight = 1
+		}
+		return maxDimension, scaledHeight
+	}
+	scaledWidth := width * maxDimension / height
+	if scaledWidth < 1 {
+		scaledWidth = 1
+	}
+	return scaledWidth, maxDimension
 }
 
 func newAudioMessage(up whatsmeow.UploadResponse, mimeType string, ptt bool, meta voiceNoteMetadata) *waProto.AudioMessage {
