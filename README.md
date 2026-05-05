@@ -180,7 +180,7 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
 - `wacli messages edit --chat JID --id MSG_ID --message TEXT [--post-send-wait 2s]`
 - `wacli messages delete --chat JID --id MSG_ID [--post-send-wait 2s]`
-- `wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send text --to RECIPIENT --message TEXT [--message-escapes] [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--ptt] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send sticker --to RECIPIENT --file PATH [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send voice --to RECIPIENT --file PATH [--pick N] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`

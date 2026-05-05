@@ -24,6 +24,7 @@
 - Profile: add `profile set-picture` to update the authenticated account profile picture from JPEG or PNG input. (#198 — thanks @gado-ships-it)
 - Sync: add signed live-message webhooks with `--webhook` and `--webhook-secret`. (#203 — thanks @dinakars777 and @Melostack)
 - Send: add `send react` to add or clear reactions, with group sender validation. (#151 — thanks @draix)
+- Send: add opt-in `send text --message-escapes` for `\n`, `\r`, `\t`, `\\`, and `\"` in `--message`. (#206 — thanks @slaveofcode)
 - Send: add `send file --reply-to` for quoted media/document replies. (#68 — thanks @vlassance)
 - Send: add repeatable `send text --mention` for WhatsApp user mentions in group messages. (#16 — thanks @nicozefrench and @sheepworrier)
 - Send: add automatic link previews for text messages with `--no-preview` opt-out. (#94, #95 — thanks @elgatoflaco)

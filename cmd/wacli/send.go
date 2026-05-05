@@ -41,6 +41,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	var replyTo string
 	var replyToSender string
 	var noPreview bool
+	var messageEscapes bool
 	postSendWait := postSendRetryReceiptWait
 
 	cmd := &cobra.Command{
@@ -52,6 +53,13 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 			}
 			if err := flags.requireWritable(); err != nil {
 				return err
+			}
+			if messageEscapes {
+				decoded, err := decodeMessageEscapes(message)
+				if err != nil {
+					return err
+				}
+				message = decoded
 			}
 
 			ctx, cancel := withTimeout(context.Background(), flags)
@@ -144,6 +152,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "message ID to quote/reply to")
 	cmd.Flags().StringVar(&replyToSender, "reply-to-sender", "", "sender JID of the quoted message (required for unsynced group replies)")
 	cmd.Flags().BoolVar(&noPreview, "no-preview", false, "disable automatic link previews for the first URL in text")
+	cmd.Flags().BoolVar(&messageEscapes, "message-escapes", false, `interpret backslash escapes in --message (\n, \r, \t, \\, \")`)
 	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after send so retry receipts can be handled (0 disables)")
 	return cmd
 }
@@ -179,6 +188,36 @@ func fetchLinkPreview(ctx context.Context, text string, disabled bool) *linkprev
 		return nil
 	}
 	return preview
+}
+
+func decodeMessageEscapes(s string) (string, error) {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' {
+			b.WriteByte(s[i])
+			continue
+		}
+		i++
+		if i >= len(s) {
+			return "", fmt.Errorf(`unfinished escape sequence in --message; supported escapes: \n, \r, \t, \\, \"`)
+		}
+		switch s[i] {
+		case 'n':
+			b.WriteByte('\n')
+		case 'r':
+			b.WriteByte('\r')
+		case 't':
+			b.WriteByte('\t')
+		case '\\':
+			b.WriteByte('\\')
+		case '"':
+			b.WriteByte('"')
+		default:
+			return "", fmt.Errorf(`unsupported escape sequence \%c in --message; supported escapes: \n, \r, \t, \\, \"`, s[i])
+		}
+	}
+	return b.String(), nil
 }
 
 func buildTextMessage(db *store.DB, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview, mentionedJIDs []string) (*waProto.Message, bool, error) {

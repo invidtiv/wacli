@@ -277,10 +277,35 @@ func TestSendTextCommandExposesNoPreviewFlag(t *testing.T) {
 	}
 }
 
+func TestSendTextCommandExposesMessageEscapesFlag(t *testing.T) {
+	cmd := newSendTextCmd(&rootFlags{})
+	if cmd.Flags().Lookup("message-escapes") == nil {
+		t.Fatalf("missing --message-escapes flag")
+	}
+}
+
 func TestSendTextCommandExposesMentionFlag(t *testing.T) {
 	cmd := newSendTextCmd(&rootFlags{})
 	if cmd.Flags().Lookup("mention") == nil {
 		t.Fatalf("missing --mention flag")
+	}
+}
+
+func TestDecodeMessageEscapes(t *testing.T) {
+	got, err := decodeMessageEscapes(`line1\nline2\ttab\rcr\\slash\"quote`)
+	if err != nil {
+		t.Fatalf("decodeMessageEscapes: %v", err)
+	}
+	want := "line1\nline2\ttab\rcr\\slash\"quote"
+	if got != want {
+		t.Fatalf("decoded = %q, want %q", got, want)
+	}
+}
+
+func TestDecodeMessageEscapesRejectsUnknownEscape(t *testing.T) {
+	_, err := decodeMessageEscapes(`hello\q`)
+	if err == nil || !strings.Contains(err.Error(), `unsupported escape sequence \q`) {
+		t.Fatalf("error = %v", err)
 	}
 }
 
