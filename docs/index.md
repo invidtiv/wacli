@@ -23,7 +23,7 @@ A script-friendly WhatsApp CLI built on [`whatsmeow`](https://github.com/tulir/w
 - **Trying it.** Read [Install](install.md), then [Quickstart](quickstart.md). Pair, sync, and send your first message in under five minutes.
 - **Searching old chats.** Read [Sync](sync.md) for the sync model and [History](history.md) for on-demand backfill.
 - **Managing chat state.** Read [Chats](chats.md) for archive, pin, mute, and read/unread commands.
-- **Sending from scripts.** Read [Send](send.md) for recipient resolution, replies, mentions, files, and reactions.
+- **Sending from scripts.** Read [Send](send.md) for recipient resolution, channels, replies, mentions, files, and reactions.
 - **Wiring up an agent.** Pair `--read-only`, `--json`, and `--events` from [Overview](overview.md); read [Doctor](doctor.md) for self-checks.
 - **Looking up a flag.** Open the per-command pages from [Overview](overview.md).
 

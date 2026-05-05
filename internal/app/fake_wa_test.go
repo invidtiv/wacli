@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ type fakeWA struct {
 
 	contacts map[types.JID]types.ContactInfo
 	groups   map[types.JID]*types.GroupInfo
+	news     map[types.JID]*types.NewsletterMetadata
 	lids     map[types.JID]types.JID
 
 	decryptedReaction   *waProto.ReactionMessage
@@ -93,6 +95,7 @@ func newFakeWA() *fakeWA {
 		handlers:      map[uint32]func(interface{}){},
 		contacts:      map[types.JID]types.ContactInfo{},
 		groups:        map[types.JID]*types.GroupInfo{},
+		news:          map[types.JID]*types.NewsletterMetadata{},
 		lids:          map[types.JID]types.JID{},
 		nextHandlerID: 1,
 	}
@@ -184,6 +187,13 @@ func (f *fakeWA) ResolveChatName(ctx context.Context, chat types.JID, pushName s
 	if chat.Server == types.GroupServer {
 		if gi, _ := f.GetGroupInfo(ctx, chat); gi != nil && gi.GroupName.Name != "" {
 			return gi.GroupName.Name
+		}
+	}
+	if chat.Server == types.NewsletterServer {
+		if meta, _ := f.GetNewsletterInfo(ctx, chat); meta != nil {
+			if name := wa.NewsletterName(meta); name != "" {
+				return name
+			}
 		}
 	}
 	if info, _ := f.GetContact(ctx, chat.ToNonAD()); info.Found {
@@ -304,11 +314,46 @@ func (f *fakeWA) JoinGroupWithLink(ctx context.Context, code string) (types.JID,
 
 func (f *fakeWA) LeaveGroup(ctx context.Context, group types.JID) error { return nil }
 
+func (f *fakeWA) GetNewsletterInfoWithInvite(ctx context.Context, key string) (*types.NewsletterMetadata, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, meta := range f.news {
+		if meta.ThreadMeta.InviteCode == key || strings.HasSuffix(key, meta.ThreadMeta.InviteCode) {
+			return meta, nil
+		}
+	}
+	return nil, nil
+}
+
+func (f *fakeWA) FollowNewsletter(ctx context.Context, jid types.JID) error { return nil }
+
+func (f *fakeWA) UnfollowNewsletter(ctx context.Context, jid types.JID) error { return nil }
+
+func (f *fakeWA) GetSubscribedNewsletters(ctx context.Context) ([]*types.NewsletterMetadata, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]*types.NewsletterMetadata, 0, len(f.news))
+	for _, meta := range f.news {
+		out = append(out, meta)
+	}
+	return out, nil
+}
+
+func (f *fakeWA) GetNewsletterInfo(ctx context.Context, jid types.JID) (*types.NewsletterMetadata, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.news[jid], nil
+}
+
 func (f *fakeWA) SendText(ctx context.Context, to types.JID, text string) (types.MessageID, error) {
 	return types.MessageID("msgid"), nil
 }
 
 func (f *fakeWA) SendProtoMessage(ctx context.Context, to types.JID, msg *waProto.Message) (types.MessageID, error) {
+	return f.SendProtoMessageWithExtra(ctx, to, msg, "")
+}
+
+func (f *fakeWA) SendProtoMessageWithExtra(ctx context.Context, to types.JID, msg *waProto.Message, mediaHandle string) (types.MessageID, error) {
 	return types.MessageID("msgid"), nil
 }
 
@@ -326,6 +371,10 @@ func (f *fakeWA) EditMessage(ctx context.Context, chat types.JID, targetID types
 
 func (f *fakeWA) Upload(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
 	return whatsmeow.UploadResponse{}, nil
+}
+
+func (f *fakeWA) UploadNewsletter(ctx context.Context, data []byte, mediaType whatsmeow.MediaType) (whatsmeow.UploadResponse, error) {
+	return whatsmeow.UploadResponse{Handle: "newsletter-media-handle"}, nil
 }
 
 func (f *fakeWA) SendChatPresence(ctx context.Context, jid types.JID, state types.ChatPresence, media types.ChatPresenceMedia) error {

@@ -70,6 +70,31 @@ func TestRefreshGroupsStoresGroupsAndChats(t *testing.T) {
 	}
 }
 
+func TestRefreshNewslettersStoresChats(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	jid := types.JID{User: "12345", Server: types.NewsletterServer}
+	f.news[jid] = &types.NewsletterMetadata{
+		ID: jid,
+		ThreadMeta: types.NewsletterThreadMetadata{
+			Name: types.NewsletterText{Text: "Launch Notes"},
+		},
+	}
+
+	if err := a.refreshNewsletters(context.Background()); err != nil {
+		t.Fatalf("refreshNewsletters: %v", err)
+	}
+	c, err := a.db.GetChat(jid.String())
+	if err != nil {
+		t.Fatalf("GetChat: %v", err)
+	}
+	if c.Kind != "newsletter" || c.Name != "Launch Notes" {
+		t.Fatalf("expected newsletter chat, got %+v", c)
+	}
+}
+
 func TestRefreshGroupsMarksMissingGroupsLeft(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeWA()

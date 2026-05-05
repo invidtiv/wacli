@@ -19,6 +19,7 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 ## Recipients
 
 - `send text`, `send file`, `send sticker`, and `send voice` accept a JID, phone number, or synced contact/group/chat name.
+- Channel JIDs use `...@newsletter`; `send text` and `send file` can target channels when the authenticated account has posting permission.
 - If a name matches multiple recipients, interactive terminals prompt.
 - In scripts, use `--pick N` to choose a displayed match.
 - Phone numbers may use common formatting such as `+1 (234) 567-8900`.
@@ -44,6 +45,8 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 - MIME type is detected automatically unless `--mime` is set.
 - `--filename` changes the displayed document name.
 - Captions apply to images, videos, and documents.
+- Files sent to channels use WhatsApp's unencrypted newsletter media upload path and include the upstream media handle required by `whatsmeow`.
+- Quoted file replies and `--ptt` voice-note mode are not supported for channel sends.
 - `send sticker` requires 512x512 WebP input. Static stickers are capped at 100 KiB; animated stickers are capped at 500 KiB and are sent with animation metadata.
 - `send voice` is a shortcut for `send file --ptt`.
 - Voice notes require OGG/Opus audio (`audio/ogg; codecs=opus`).

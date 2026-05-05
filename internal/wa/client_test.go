@@ -79,6 +79,7 @@ func TestParseUserOrJID(t *testing.T) {
 		{name: "minimum length phone", input: "1234567", wantUser: "1234567", wantServer: types.DefaultUserServer},
 		{name: "maximum length phone", input: "123456789012345", wantUser: "123456789012345", wantServer: types.DefaultUserServer},
 		{name: "group jid", input: "123@g.us", wantUser: "123", wantServer: types.GroupServer},
+		{name: "newsletter jid", input: "123@newsletter", wantUser: "123", wantServer: types.NewsletterServer},
 		{name: "empty after plus", input: "+", wantErr: true},
 		{name: "too short phone", input: "123456", wantErr: true},
 		{name: "too long phone", input: "1234567890123456", wantErr: true},
@@ -104,6 +105,20 @@ func TestParseUserOrJID(t *testing.T) {
 				t.Fatalf("unexpected jid: %+v", j)
 			}
 		})
+	}
+}
+
+func TestNewsletterName(t *testing.T) {
+	meta := &types.NewsletterMetadata{
+		ThreadMeta: types.NewsletterThreadMetadata{
+			Name: types.NewsletterText{Text: "  Launch Notes  "},
+		},
+	}
+	if got := NewsletterName(meta); got != "Launch Notes" {
+		t.Fatalf("NewsletterName = %q", got)
+	}
+	if got := NewsletterName(nil); got != "" {
+		t.Fatalf("NewsletterName(nil) = %q", got)
 	}
 }
 

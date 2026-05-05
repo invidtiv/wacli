@@ -5,7 +5,7 @@ import "fmt"
 const coreSchemaSQL = `
 	CREATE TABLE IF NOT EXISTS chats (
 		jid TEXT PRIMARY KEY,
-		kind TEXT NOT NULL, -- dm|group|broadcast|unknown
+		kind TEXT NOT NULL, -- dm|group|broadcast|newsletter|unknown
 		name TEXT,
 		last_message_ts INTEGER,
 		archived INTEGER NOT NULL DEFAULT 0,

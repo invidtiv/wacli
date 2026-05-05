@@ -22,7 +22,7 @@ This document defines the v1 plan for `wacli`: a WhatsApp CLI that syncs message
 
 ## Terminology
 
-- **JID**: WhatsApp Jabber ID, e.g. `1234567890@s.whatsapp.net` (user) or `123456789@g.us` (group).
+- **JID**: WhatsApp Jabber ID, e.g. `1234567890@s.whatsapp.net` (user), `123456789@g.us` (group), or `123456789012345@newsletter` (channel).
 - **Store directory**: directory containing all local state, default `~/.local/state/wacli` on Linux and `~/.wacli` elsewhere.
 
 ## Storage layout
@@ -96,7 +96,7 @@ Immediately after QR pairing success, `wacli auth` runs a bootstrap sync:
 ### Tables (proposed)
 
 - `chats`
-  - `jid` (PK), `name`, `kind` (`dm|group|broadcast`), `last_message_ts`, `archived`, `pinned`, `muted_until`, `unread`, …
+  - `jid` (PK), `name`, `kind` (`dm|group|broadcast|newsletter|unknown`), `last_message_ts`, `archived`, `pinned`, `muted_until`, `unread`, …
 - `contacts`
   - `jid` (PK), `push_name`, `full_name`, `business_name`, `phone`, …
 - `groups`
@@ -193,7 +193,8 @@ WhatsApp Web history is best-effort. If you want to try fetching *older* message
 - `wacli send voice --to RECIPIENT --file PATH [--mime TYPE] [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID]`
 - `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID]`
 
-`RECIPIENT` accepts a JID, phone number, or synced contact/group/chat name. If a name is ambiguous, interactive terminals prompt; scripts can pass `--pick N`.
+`RECIPIENT` accepts a JID, phone number, channel JID (`...@newsletter`), or synced contact/group/chat name. If a name is ambiguous, interactive terminals prompt; scripts can pass `--pick N`.
+Sending to channels requires channel posting permission. File sends to channels use WhatsApp's unencrypted newsletter media upload and pass the returned media handle through `whatsmeow.SendRequestExtra`.
 Text sends automatically include a link preview for the first `http://` or `https://` URL unless `--no-preview` is passed.
 Voice notes require OGG/Opus audio and use optional `ffprobe`/`ffmpeg` metadata when available.
 Stickers require 512x512 WebP input and are stored locally as `sticker` media after sending. Static stickers are capped at 100 KiB; animated stickers are capped at 500 KiB and carry animation metadata in the outgoing proto.
@@ -231,6 +232,13 @@ or writing unexpectedly large payloads in one command.
 - `wacli groups invite link get|revoke --jid GROUP_JID`
 - `wacli groups join --code INVITE_CODE`
 - `wacli groups leave --jid GROUP_JID`
+
+### Channels
+
+- `wacli channels list`
+- `wacli channels info --jid CHANNEL_JID`
+- `wacli channels join --invite LINK_OR_CODE`
+- `wacli channels leave --jid CHANNEL_JID`
 
 ## Output formats
 

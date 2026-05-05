@@ -36,6 +36,7 @@ type SyncOptions struct {
 	DownloadMedia   bool
 	RefreshContacts bool
 	RefreshGroups   bool
+	RefreshChannels bool
 	IdleExit        time.Duration // only used for bootstrap/once
 	MaxReconnect    time.Duration // max time to attempt reconnection before giving up (0 = unlimited)
 	MaxMessages     int64         // 0 = unlimited
@@ -127,6 +128,9 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 	}
 	if opts.RefreshGroups {
 		_ = a.refreshGroups(syncCtx)
+	}
+	if opts.RefreshChannels {
+		_ = a.refreshNewsletters(syncCtx)
 	}
 	if opts.AfterConnect != nil {
 		if err := opts.AfterConnect(syncCtx); err != nil {
@@ -269,6 +273,9 @@ func syncStorageLimitError(kind string, got, limit int64) error {
 }
 
 func chatKind(chat types.JID) string {
+	if chat.Server == types.NewsletterServer {
+		return "newsletter"
+	}
 	if chat.Server == types.GroupServer {
 		return "group"
 	}

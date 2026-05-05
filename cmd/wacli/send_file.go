@@ -81,16 +81,32 @@ func sendFile(ctx context.Context, a interface {
 		uploadType, _ = wa.MediaTypeFromString("audio")
 	}
 
-	up, err := a.WA().Upload(ctx, data, uploadType)
+	isNewsletter := to.Server == types.NewsletterServer
+	if isNewsletter && opts.ptt {
+		return "", nil, fmt.Errorf("voice-note mode is not supported for channels; omit --ptt to send audio")
+	}
+	if isNewsletter && (strings.TrimSpace(opts.replyTo) != "" || strings.TrimSpace(opts.replyToSender) != "") {
+		return "", nil, fmt.Errorf("quoted file replies are not supported for channels")
+	}
+
+	var up whatsmeow.UploadResponse
+	if isNewsletter {
+		up, err = a.WA().UploadNewsletter(ctx, data, uploadType)
+	} else {
+		up, err = a.WA().Upload(ctx, data, uploadType)
+	}
 	if err != nil {
 		return "", nil, err
 	}
 
 	now := time.Now().UTC()
 	msg := &waProto.Message{}
-	replyContext, err := buildReplyContextInfo(a.DB(), to, opts.replyTo, opts.replyToSender)
-	if err != nil {
-		return "", nil, err
+	var replyContext *waProto.ContextInfo
+	if !isNewsletter {
+		replyContext, err = buildReplyContextInfo(a.DB(), to, opts.replyTo, opts.replyToSender)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 	voiceMeta := voiceNoteMetadata{}
 	if opts.ptt {
@@ -133,7 +149,12 @@ func sendFile(ctx context.Context, a interface {
 	}
 	attachSendFileReplyContext(msg, replyContext)
 
-	id, err := a.WA().SendProtoMessage(ctx, to, msg)
+	var id types.MessageID
+	if isNewsletter {
+		id, err = a.WA().SendProtoMessageWithExtra(ctx, to, msg, up.Handle)
+	} else {
+		id, err = a.WA().SendProtoMessage(ctx, to, msg)
+	}
 	if err != nil {
 		return "", nil, err
 	}
@@ -296,6 +317,9 @@ func attachSendFileReplyContext(msg *waProto.Message, info *waProto.ContextInfo)
 }
 
 func chatKindFromJID(j types.JID) string {
+	if j.Server == types.NewsletterServer {
+		return "newsletter"
+	}
 	if j.Server == types.GroupServer {
 		return "group"
 	}

@@ -19,6 +19,7 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 	var downloadMedia bool
 	var refreshContacts bool
 	var refreshGroups bool
+	var refreshChannels bool
 	var webhookURL string
 	var webhookSecret string
 	var storage syncStorageLimitFlags
@@ -84,6 +85,7 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 				DownloadMedia:   downloadMedia,
 				RefreshContacts: refreshContacts,
 				RefreshGroups:   refreshGroups,
+				RefreshChannels: refreshChannels,
 				IdleExit:        idleExit,
 				MaxReconnect:    maxReconnect,
 				MaxMessages:     maxMessages,
@@ -114,6 +116,7 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&downloadMedia, "download-media", false, "download media in the background during sync")
 	cmd.Flags().BoolVar(&refreshContacts, "refresh-contacts", false, "refresh contacts from session store into local DB")
 	cmd.Flags().BoolVar(&refreshGroups, "refresh-groups", false, "refresh joined groups (live) into local DB")
+	cmd.Flags().BoolVar(&refreshChannels, "refresh-channels", false, "refresh subscribed channels (live) into local DB")
 	cmd.Flags().StringVar(&webhookURL, "webhook", "", "URL to POST live message JSON")
 	cmd.Flags().StringVar(&webhookSecret, "webhook-secret", "", "HMAC-SHA256 secret for X-Wacli-Signature header")
 	cmd.Flags().Int64Var(&storage.maxMessages, "max-messages", 0, "maximum total messages to keep in the local DB before sync stops (0 = unlimited, or WACLI_SYNC_MAX_MESSAGES)")

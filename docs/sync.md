@@ -7,7 +7,7 @@ Read when: running continuous capture, one-shot sync, contact/group refresh, or 
 ## Command
 
 ```bash
-wacli sync [--once] [--follow] [--idle-exit 30s] [--max-reconnect 5m] [--max-messages N] [--max-db-size SIZE] [--download-media] [--refresh-contacts] [--refresh-groups] [--events] [--webhook URL] [--webhook-secret SECRET]
+wacli sync [--once] [--follow] [--idle-exit 30s] [--max-reconnect 5m] [--max-messages N] [--max-db-size SIZE] [--download-media] [--refresh-contacts] [--refresh-groups] [--refresh-channels] [--events] [--webhook URL] [--webhook-secret SECRET]
 ```
 
 ## Modes
@@ -21,6 +21,7 @@ wacli sync [--once] [--follow] [--idle-exit 30s] [--max-reconnect 5m] [--max-mes
 - `--download-media` runs a bounded media downloader for sync events.
 - `--refresh-contacts` imports contacts from the session store.
 - `--refresh-groups` fetches joined groups live and updates the local DB.
+- `--refresh-channels` fetches subscribed WhatsApp Channels live and updates local chat rows.
 - `--webhook URL` posts successfully stored live message events as JSON on a bounded background worker.
 - `--webhook-secret SECRET` signs webhook payloads with `X-Wacli-Signature: sha256=<hmac>`.
 - Webhook delivery is best-effort: failures and full-queue drops are logged as warnings and do not stop sync. Retries/backoff are intentionally out of scope for this flag.
@@ -37,7 +38,7 @@ wacli sync [--once] [--follow] [--idle-exit 30s] [--max-reconnect 5m] [--max-mes
 wacli sync --once
 wacli sync --follow --max-reconnect 10m
 wacli sync --follow --max-messages 250000 --max-db-size 2GB
-wacli sync --once --refresh-contacts --refresh-groups
+wacli sync --once --refresh-contacts --refresh-groups --refresh-channels
 wacli sync --follow --download-media
 wacli sync --once --events 2>events.ndjson
 wacli sync --follow --webhook https://example.com/wacli --webhook-secret "$WACLI_WEBHOOK_SECRET"

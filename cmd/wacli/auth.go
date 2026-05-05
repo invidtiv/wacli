@@ -70,6 +70,7 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 				DownloadMedia:   downloadMedia,
 				RefreshContacts: true,
 				RefreshGroups:   true,
+				RefreshChannels: true,
 				IdleExit:        idleExit,
 				OnQRCode:        authQRWriter(qrFormat, os.Stdout, os.Stderr, a.Events()),
 				PairPhoneNumber: pairPhone,
