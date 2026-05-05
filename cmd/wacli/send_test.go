@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/steipete/wacli/internal/linkpreview"
 	"github.com/steipete/wacli/internal/store"
+	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -207,5 +209,66 @@ func TestBuildReplyContextInfo(t *testing.T) {
 	}
 	if got != nil {
 		t.Fatalf("empty reply context = %v, want nil", got)
+	}
+}
+
+func TestSendTextCommandExposesNoPreviewFlag(t *testing.T) {
+	cmd := newSendTextCmd(&rootFlags{})
+	if cmd.Flags().Lookup("no-preview") == nil {
+		t.Fatalf("missing --no-preview flag")
+	}
+}
+
+func TestBuildTextMessageUsesPlainConversationWithoutReplyOrPreview(t *testing.T) {
+	db := openSendTestDB(t)
+	chat := types.JID{User: "15551234567", Server: types.DefaultUserServer}
+
+	msg, plain, err := buildTextMessage(db, chat, "hello", "", "", nil)
+	if err != nil {
+		t.Fatalf("buildTextMessage: %v", err)
+	}
+	if !plain {
+		t.Fatalf("plain = false, want true")
+	}
+	if msg != nil {
+		t.Fatalf("msg = %v, want nil", msg)
+	}
+}
+
+func TestBuildTextMessageAttachesLinkPreview(t *testing.T) {
+	db := openSendTestDB(t)
+	chat := types.JID{User: "15551234567", Server: types.DefaultUserServer}
+	preview := &linkpreview.Preview{
+		URL:         "https://example.com/post",
+		Title:       "Example",
+		Description: "Description",
+		Thumbnail:   []byte("jpeg"),
+	}
+
+	msg, plain, err := buildTextMessage(db, chat, "see https://example.com/post", "", "", preview)
+	if err != nil {
+		t.Fatalf("buildTextMessage: %v", err)
+	}
+	if plain {
+		t.Fatalf("plain = true, want false")
+	}
+	ext := msg.GetExtendedTextMessage()
+	if ext.GetText() != "see https://example.com/post" {
+		t.Fatalf("text = %q", ext.GetText())
+	}
+	if ext.GetMatchedText() != preview.URL {
+		t.Fatalf("matched text = %q", ext.GetMatchedText())
+	}
+	if ext.GetTitle() != preview.Title {
+		t.Fatalf("title = %q", ext.GetTitle())
+	}
+	if ext.GetDescription() != preview.Description {
+		t.Fatalf("description = %q", ext.GetDescription())
+	}
+	if ext.GetPreviewType() != waProto.ExtendedTextMessage_IMAGE {
+		t.Fatalf("preview type = %v", ext.GetPreviewType())
+	}
+	if string(ext.GetJPEGThumbnail()) != "jpeg" {
+		t.Fatalf("thumbnail = %q", string(ext.GetJPEGThumbnail()))
 	}
 }

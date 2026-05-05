@@ -7,7 +7,7 @@ Read when: sending text, files, quoted replies, or reactions.
 ## Commands
 
 ```bash
-wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
+wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]
 wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]
 ```
@@ -21,6 +21,9 @@ wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] 
 
 ## Replies and reactions
 
+- `send text` fetches Open Graph metadata for the first `http://` or `https://` URL and sends it as a WhatsApp link preview.
+- Preview metadata fetches time out after 10 seconds and fall back to plain text.
+- Pass `--no-preview` to disable link-preview fetching.
 - `--reply-to` quotes a stored message ID.
 - For unsynced group replies, pass `--reply-to-sender`.
 - `send react` defaults to thumbs-up.

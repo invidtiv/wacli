@@ -109,6 +109,8 @@ pnpm wacli media download --chat 1234567890@s.whatsapp.net --id <message-id>
 
 # Send a message by phone/JID, or by a synced contact/group/chat name
 pnpm wacli send text --to 1234567890 --message "hello"
+# Link previews are added automatically for the first http(s) URL; use --no-preview to skip.
+pnpm wacli send text --to 1234567890 --message "https://example.com" --no-preview
 # Phone numbers can also be passed as +E164 or formatted input like "+1 (234) 567-8900"
 pnpm wacli send text --to mom --message "hello"
 pnpm wacli send text --to "Family" --pick 2 --message "hello"
@@ -156,7 +158,7 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli messages search <query> [--chat JID] [--from JID] [--has-media] [--type text|image|video|audio|document] [--forwarded]`
 - `wacli messages show --chat JID --id MSG_ID`
 - `wacli messages context --chat JID --id MSG_ID [--before N] [--after N]`
-- `wacli send text --to RECIPIENT --message TEXT [--pick N] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
+- `wacli send text --to RECIPIENT --message TEXT [--pick N] [--no-preview] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send file --to RECIPIENT --file PATH [--pick N] [--caption TEXT] [--filename NAME] [--mime TYPE] [--reply-to MSG_ID] [--reply-to-sender JID] [--post-send-wait 2s]`
 - `wacli send react --to PHONE_OR_JID --id MSG_ID [--reaction TEXT] [--sender JID] [--post-send-wait 2s]`
 - `wacli media download --chat JID --id MSG_ID [--output PATH]`

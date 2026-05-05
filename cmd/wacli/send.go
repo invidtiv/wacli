@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/steipete/wacli/internal/app"
+	"github.com/steipete/wacli/internal/linkpreview"
 	"github.com/steipete/wacli/internal/out"
 	"github.com/steipete/wacli/internal/store"
 	"github.com/steipete/wacli/internal/wa"
@@ -36,6 +37,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	var message string
 	var replyTo string
 	var replyToSender string
+	var noPreview bool
 	postSendWait := postSendRetryReceiptWait
 
 	cmd := &cobra.Command{
@@ -73,8 +75,9 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
+			preview := fetchLinkPreview(ctx, message, noPreview)
 			msgID, err := runSendOperation(ctx, reconnectForSend(a), func(ctx context.Context) (types.MessageID, error) {
-				return sendTextMessage(ctx, a, toJID, message, replyTo, replyToSender)
+				return sendTextMessage(ctx, a, toJID, message, replyTo, replyToSender, preview)
 			})
 			if err != nil {
 				return err
@@ -115,6 +118,7 @@ func newSendTextCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&message, "message", "", "message text")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "message ID to quote/reply to")
 	cmd.Flags().StringVar(&replyToSender, "reply-to-sender", "", "sender JID of the quoted message (required for unsynced group replies)")
+	cmd.Flags().BoolVar(&noPreview, "no-preview", false, "disable automatic link previews for the first URL in text")
 	cmd.Flags().DurationVar(&postSendWait, "post-send-wait", postSendRetryReceiptWait, "keep the connection alive after send so retry receipts can be handled (0 disables)")
 	return cmd
 }
@@ -124,21 +128,70 @@ type sendTextApp interface {
 	DB() *store.DB
 }
 
-func sendTextMessage(ctx context.Context, a sendTextApp, to types.JID, text, replyTo, replyToSender string) (types.MessageID, error) {
-	info, err := buildReplyContextInfo(a.DB(), to, replyTo, replyToSender)
+func sendTextMessage(ctx context.Context, a sendTextApp, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview) (types.MessageID, error) {
+	msg, plainText, err := buildTextMessage(a.DB(), to, text, replyTo, replyToSender, preview)
 	if err != nil {
 		return "", err
 	}
-	if info == nil {
+	if plainText {
 		return a.WA().SendText(ctx, to, text)
 	}
+	return a.WA().SendProtoMessage(ctx, to, msg)
+}
 
-	return a.WA().SendProtoMessage(ctx, to, &waProto.Message{
-		ExtendedTextMessage: &waProto.ExtendedTextMessage{
-			Text:        proto.String(text),
-			ContextInfo: info,
-		},
-	})
+func fetchLinkPreview(ctx context.Context, text string, disabled bool) *linkpreview.Preview {
+	if disabled {
+		return nil
+	}
+	rawURL := linkpreview.FindFirstHTTPURL(text)
+	if rawURL == "" {
+		return nil
+	}
+	previewCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	preview, err := linkpreview.Fetch(previewCtx, nil, rawURL)
+	if err != nil {
+		return nil
+	}
+	return preview
+}
+
+func buildTextMessage(db *store.DB, to types.JID, text, replyTo, replyToSender string, preview *linkpreview.Preview) (*waProto.Message, bool, error) {
+	info, err := buildReplyContextInfo(db, to, replyTo, replyToSender)
+	if err != nil {
+		return nil, false, err
+	}
+	if info == nil && preview == nil {
+		return nil, true, nil
+	}
+
+	ext := &waProto.ExtendedTextMessage{
+		Text:        proto.String(text),
+		ContextInfo: info,
+	}
+	attachLinkPreview(ext, preview)
+	return &waProto.Message{ExtendedTextMessage: ext}, false, nil
+}
+
+func attachLinkPreview(msg *waProto.ExtendedTextMessage, preview *linkpreview.Preview) {
+	if preview == nil {
+		return
+	}
+	if preview.URL != "" {
+		msg.MatchedText = proto.String(preview.URL)
+	}
+	if preview.Title != "" {
+		msg.Title = proto.String(preview.Title)
+	}
+	if preview.Description != "" {
+		msg.Description = proto.String(preview.Description)
+	}
+	if len(preview.Thumbnail) > 0 {
+		msg.PreviewType = waProto.ExtendedTextMessage_IMAGE.Enum()
+		msg.JPEGThumbnail = preview.Thumbnail
+		return
+	}
+	msg.PreviewType = waProto.ExtendedTextMessage_NONE.Enum()
 }
 
 func buildReplyContextInfo(db *store.DB, chat types.JID, replyTo, replyToSender string) (*waProto.ContextInfo, error) {

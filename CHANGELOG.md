@@ -18,6 +18,7 @@
 - Profile: add `profile set-picture` to update the authenticated account profile picture from JPEG or PNG input. (#198 — thanks @gado-ships-it)
 - Send: add `send react` to add or clear reactions, with group sender validation. (#151 — thanks @draix)
 - Send: add `send file --reply-to` for quoted media/document replies. (#68 — thanks @vlassance)
+- Send: add automatic link previews for text messages with `--no-preview` opt-out. (#94, #95 — thanks @elgatoflaco)
 - Send: accept common phone-number formatting in recipient flags while still storing digits-only WhatsApp JIDs. (#130 — thanks @fahmidme and @ImLukeF)
 - Send: resolve `send text/file --to` against local contacts, groups, and chats, with `--pick` for non-interactive disambiguation. (#122 — thanks @AndroidPoet)
 
