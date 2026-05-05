@@ -2,14 +2,17 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/steipete/wacli/internal/wa"
+	"go.mau.fi/whatsmeow/appstate"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -62,6 +65,53 @@ func TestLiveSyncWarnsOnEncryptedReactionDecryptFailure(t *testing.T) {
 	}
 	if msg.DisplayText != "Reacted to message" {
 		t.Fatalf("expected fallback reaction display text, got %q", msg.DisplayText)
+	}
+}
+
+func TestAppStateLTHashMismatchRequestsRecoveryOnce(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	var recoveries sync.Map
+	err := fmt.Errorf("failed to verify patch v5848: %w", appstate.ErrMismatchingLTHash)
+	a.handleAppStateSyncError(context.Background(), &events.AppStateSyncError{
+		Name:  appstate.WAPatchRegularLow,
+		Error: err,
+	}, &recoveries)
+	a.handleAppStateSyncError(context.Background(), &events.AppStateSyncError{
+		Name:  appstate.WAPatchRegularLow,
+		Error: err,
+	}, &recoveries)
+
+	waitForCondition(t, time.Second, func() bool {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		return len(f.appStateRecoveries) == 1
+	})
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if got := f.appStateRecoveries[0]; got != string(appstate.WAPatchRegularLow) {
+		t.Fatalf("recovery collection = %q", got)
+	}
+}
+
+func TestAppStateNonLTHashErrorDoesNotRequestRecovery(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	var recoveries sync.Map
+	a.handleAppStateSyncError(context.Background(), &events.AppStateSyncError{
+		Name:  appstate.WAPatchRegularLow,
+		Error: errors.New("mismatching patch MAC"),
+	}, &recoveries)
+
+	time.Sleep(20 * time.Millisecond)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.appStateRecoveries) != 0 {
+		t.Fatalf("recovery requests = %v, want none", f.appStateRecoveries)
 	}
 }
 
@@ -672,6 +722,20 @@ func TestSyncDoesNotRetryTransientConnectFailureOutsideAuthFlow(t *testing.T) {
 	}
 	if f.connectCalls != 1 {
 		t.Fatalf("connect calls = %d, want 1", f.connectCalls)
+	}
+}
+
+func waitForCondition(t *testing.T, timeout time.Duration, ok func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if ok() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !ok() {
+		t.Fatalf("condition not met within %s", timeout)
 	}
 }
 

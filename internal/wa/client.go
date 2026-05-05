@@ -10,6 +10,7 @@ import (
 
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/appstate"
 	waBinary "go.mau.fi/whatsmeow/binary"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -310,6 +311,25 @@ func (c *Client) RequestHistorySyncOnDemand(ctx context.Context, lastKnown types
 
 	msg := cli.BuildHistorySyncRequest(&lastKnown, count)
 	resp, err := cli.SendMessage(ctx, ownID, msg, whatsmeow.SendRequestExtra{Peer: true})
+	if err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func (c *Client) RequestAppStateRecovery(ctx context.Context, name string) (types.MessageID, error) {
+	c.mu.Lock()
+	cli := c.client
+	c.mu.Unlock()
+	if cli == nil || !cli.IsConnected() {
+		return "", fmt.Errorf("not connected")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("app state collection name is required")
+	}
+
+	resp, err := cli.SendPeerMessage(ctx, whatsmeow.BuildAppStateRecoveryRequest(appstate.WAPatchName(name)))
 	if err != nil {
 		return "", err
 	}

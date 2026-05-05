@@ -66,6 +66,7 @@
 - Send: persist retry-message plaintext so linked devices can decrypt retried messages. (#186 — thanks @SimDamDev)
 - Store: use the XDG state directory on Linux by default, while keeping existing `~/.wacli` stores working. (#172, #164 — thanks @txhno)
 - Sync: guard lazy WhatsApp client initialization against concurrent `OpenWA` calls. (#62 — thanks @thakoreh)
+- Sync: request a whatsmeow app-state recovery snapshot when LTHash verification fails. (#47 — thanks @elpargo)
 - Sync: decrypt encrypted reactions delivered through history sync before storing them. (#192 — thanks @matrixise)
 - Sync: resolve live `@lid` chat and sender JIDs to phone-number JIDs before storing messages. (#196 — thanks @mahidconseil)
 - Sync: warn when encrypted reaction messages cannot be decrypted instead of dropping the failure silently. (#192 — thanks @matrixise and @dinakars777)

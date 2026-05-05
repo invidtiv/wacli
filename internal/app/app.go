@@ -55,6 +55,7 @@ type WAClient interface {
 	SetManualHistorySyncDownload(enabled bool)
 	DownloadHistorySync(ctx context.Context, notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error)
 	RequestHistorySyncOnDemand(ctx context.Context, lastKnown types.MessageInfo, count int) (types.MessageID, error)
+	RequestAppStateRecovery(ctx context.Context, name string) (types.MessageID, error)
 	Logout(ctx context.Context) error
 	LinkedJID() string
 

@@ -37,13 +37,15 @@ type fakeWA struct {
 	groups   map[types.JID]*types.GroupInfo
 	lids     map[types.JID]types.JID
 
-	decryptedReaction  *waProto.ReactionMessage
-	decryptReactionErr error
-	onDemandHistory    func(lastKnown types.MessageInfo, count int) *events.HistorySync
-	onDemandEvent      func(lastKnown types.MessageInfo, count int) interface{}
-	downloadHistory    func(notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error)
+	decryptedReaction   *waProto.ReactionMessage
+	decryptReactionErr  error
+	onDemandHistory     func(lastKnown types.MessageInfo, count int) *events.HistorySync
+	onDemandEvent       func(lastKnown types.MessageInfo, count int) interface{}
+	downloadHistory     func(notif *waE2E.HistorySyncNotification) (*waHistorySync.HistorySync, error)
+	appStateRecoveryErr error
 
 	manualHistorySyncCalls []bool
+	appStateRecoveries     []string
 }
 
 func newFakeWA() *fakeWA {
@@ -372,6 +374,16 @@ func (f *fakeWA) RequestHistorySyncOnDemand(ctx context.Context, lastKnown types
 		f.emit(cb(lastKnown, count))
 	}
 	return types.MessageID("req"), nil
+}
+
+func (f *fakeWA) RequestAppStateRecovery(ctx context.Context, name string) (types.MessageID, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.appStateRecoveryErr != nil {
+		return "", f.appStateRecoveryErr
+	}
+	f.appStateRecoveries = append(f.appStateRecoveries, name)
+	return types.MessageID("recovery-req"), nil
 }
 
 func (f *fakeWA) Logout(ctx context.Context) error {

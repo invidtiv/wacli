@@ -2,13 +2,17 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/steipete/wacli/internal/wa"
+	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types/events"
 )
@@ -27,6 +31,7 @@ func newMediaEnqueuer(ctx context.Context, jobs chan<- mediaJob) func(chatJID, m
 
 func (a *App) addSyncEventHandler(ctx context.Context, opts SyncOptions, messagesStored, lastEvent *atomic.Int64, disconnected chan<- struct{}, enqueueMedia func(string, string), limits *syncStorageLimits) uint32 {
 	var panicCount atomic.Int64
+	var appStateRecoveries sync.Map
 	return a.wa.AddEventHandler(func(evt interface{}) {
 		// Recover from panics so unexpected message structures do not crash the
 		// process. Include event type, stack trace, and a running counter.
@@ -52,8 +57,38 @@ func (a *App) addSyncEventHandler(ctx context.Context, opts SyncOptions, message
 			case disconnected <- struct{}{}:
 			default:
 			}
+		case *events.AppStateSyncError:
+			a.handleAppStateSyncError(ctx, v, &appStateRecoveries)
 		}
 	})
+}
+
+func (a *App) handleAppStateSyncError(ctx context.Context, evt *events.AppStateSyncError, recoveries *sync.Map) {
+	if evt == nil || !errors.Is(evt.Error, appstate.ErrMismatchingLTHash) {
+		return
+	}
+	name := strings.TrimSpace(string(evt.Name))
+	if name == "" {
+		return
+	}
+	if recoveries == nil {
+		recoveries = &sync.Map{}
+	}
+	if _, loaded := recoveries.LoadOrStore(name, struct{}{}); loaded {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "\rwarning: app state %s hit an LTHash mismatch; requesting recovery snapshot\n", name)
+	go func() {
+		reqCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		reqID, err := a.wa.RequestAppStateRecovery(reqCtx, name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\rwarning: app state %s recovery request failed: %v\n", name, err)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "\rRequested app state %s recovery (id %s)\n", name, reqID)
+	}()
 }
 
 func (a *App) handleLiveSyncMessage(ctx context.Context, opts SyncOptions, v *events.Message, messagesStored *atomic.Int64, enqueueMedia func(string, string), limits ...*syncStorageLimits) {
