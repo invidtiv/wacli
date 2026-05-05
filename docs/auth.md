@@ -17,6 +17,7 @@ wacli auth logout
 - Default pairing prints a terminal QR code.
 - `--qr-format text` prints the raw QR payload for external renderers.
 - `--phone PHONE` uses WhatsApp phone-number pairing instead of QR pairing.
+- Transient websocket drops before pairing completes are retried with a fresh QR/code.
 - After pairing, auth runs bootstrap sync until idle unless `--follow` is set.
 - Bootstrap sync honors `WACLI_SYNC_MAX_MESSAGES` and `WACLI_SYNC_MAX_DB_SIZE` to cap local history growth.
 - `auth status` reports whether the local store is authenticated.

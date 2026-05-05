@@ -633,3 +633,63 @@ func TestSyncOnceIdleExitStartsAfterConnected(t *testing.T) {
 		t.Fatalf("expected idle timer to start after connect, exited after %s", elapsed)
 	}
 }
+
+func TestSyncRetriesTransientAuthConnectFailure(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	f.authed = false
+	f.connectErrs = []error{fmt.Errorf("QR code timed out; run `wacli auth` again")}
+	a.wa = f
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err := a.Sync(ctx, SyncOptions{
+		Mode:     SyncModeOnce,
+		AllowQR:  true,
+		IdleExit: 10 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if f.connectCalls != 2 {
+		t.Fatalf("connect calls = %d, want 2", f.connectCalls)
+	}
+}
+
+func TestSyncDoesNotRetryTransientConnectFailureOutsideAuthFlow(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	f.connectErrs = []error{fmt.Errorf("QR code timed out; run `wacli auth` again")}
+	a.wa = f
+
+	_, err := a.Sync(context.Background(), SyncOptions{
+		Mode:    SyncModeOnce,
+		AllowQR: false,
+	})
+	if err == nil {
+		t.Fatalf("expected connect error")
+	}
+	if f.connectCalls != 1 {
+		t.Fatalf("connect calls = %d, want 1", f.connectCalls)
+	}
+}
+
+func TestSyncDoesNotRetryNonTransientAuthConnectFailure(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	f.authed = false
+	f.connectErrs = []error{fmt.Errorf("QR pairing failed: bad code")}
+	a.wa = f
+
+	_, err := a.Sync(context.Background(), SyncOptions{
+		Mode:    SyncModeOnce,
+		AllowQR: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "bad code") {
+		t.Fatalf("expected pairing error, got %v", err)
+	}
+	if f.connectCalls != 1 {
+		t.Fatalf("connect calls = %d, want 1", f.connectCalls)
+	}
+}

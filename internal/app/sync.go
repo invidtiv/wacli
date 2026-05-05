@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,8 @@ import (
 	"github.com/steipete/wacli/internal/wa"
 	"go.mau.fi/whatsmeow/types"
 )
+
+const maxAuthConnectAttempts = 3
 
 type SyncMode string
 
@@ -92,12 +95,7 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 		defer stopMedia()
 	}
 
-	if err := a.wa.Connect(syncCtx, wa.ConnectOptions{
-		AllowQR:         opts.AllowQR,
-		OnQRCode:        opts.OnQRCode,
-		PairPhoneNumber: opts.PairPhoneNumber,
-		OnPairCode:      opts.OnPairCode,
-	}); err != nil {
+	if err := a.connectForSync(syncCtx, opts); err != nil {
 		return SyncResult{}, err
 	}
 	lastEvent.Store(nowUTC().UnixNano())
@@ -131,6 +129,62 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 		return SyncResult{MessagesStored: messagesStored.Load()}, err
 	}
 	return SyncResult{MessagesStored: messagesStored.Load()}, nil
+}
+
+func (a *App) connectForSync(ctx context.Context, opts SyncOptions) error {
+	connectOpts := wa.ConnectOptions{
+		AllowQR:         opts.AllowQR,
+		OnQRCode:        opts.OnQRCode,
+		PairPhoneNumber: opts.PairPhoneNumber,
+		OnPairCode:      opts.OnPairCode,
+	}
+
+	attempts := 1
+	if opts.AllowQR || opts.PairPhoneNumber != "" {
+		attempts = maxAuthConnectAttempts
+	}
+	for attempt := 1; attempt <= attempts; attempt++ {
+		err := a.wa.Connect(ctx, connectOpts)
+		if err == nil {
+			return nil
+		}
+		if attempt == attempts || ctx.Err() != nil || !isRetryableAuthConnectError(err) {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "warning: auth connection dropped before pairing completed; retrying (%d/%d)\n", attempt+1, attempts)
+		select {
+		case <-time.After(authConnectRetryDelay(attempt)):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
+func authConnectRetryDelay(attempt int) time.Duration {
+	return time.Duration(attempt) * 500 * time.Millisecond
+}
+
+func isRetryableAuthConnectError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, needle := range []string{
+		"qr code timed out",
+		"qr channel closed",
+		"websocket",
+		"failed to read frame header",
+		"connection reset",
+		"broken pipe",
+		"i/o timeout",
+		"eof",
+	} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) checkSyncStorageLimits(opts SyncOptions) error {

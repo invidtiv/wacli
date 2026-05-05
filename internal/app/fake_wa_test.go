@@ -28,6 +28,8 @@ type fakeWA struct {
 	handlers      map[uint32]func(interface{})
 
 	connectEvents []interface{}
+	connectErrs   []error
+	connectCalls  int
 	connectDelay  time.Duration
 	downloadDelay time.Duration
 
@@ -78,13 +80,28 @@ func (f *fakeWA) IsConnected() bool {
 
 func (f *fakeWA) Connect(ctx context.Context, opts wa.ConnectOptions) error {
 	f.mu.Lock()
+	f.connectCalls++
 	authed := f.authed
+	var connectErr error
+	if len(f.connectErrs) > 0 {
+		connectErr = f.connectErrs[0]
+		f.connectErrs = f.connectErrs[1:]
+	}
 	f.connected = true
 	eventsToEmit := append([]interface{}{}, f.connectEvents...)
 	f.mu.Unlock()
 
 	if !authed && !opts.AllowQR {
+		f.mu.Lock()
+		f.connected = false
+		f.mu.Unlock()
 		return fmt.Errorf("not authenticated; run `wacli auth`")
+	}
+	if connectErr != nil {
+		f.mu.Lock()
+		f.connected = false
+		f.mu.Unlock()
+		return connectErr
 	}
 	if f.connectDelay > 0 {
 		select {

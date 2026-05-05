@@ -35,6 +35,7 @@
 
 ### Fixed
 
+- Auth: retry transient websocket drops before QR or phone pairing completes.
 - Auth: propagate QR channel setup errors and surface actionable QR pairing failures. (#100 — thanks @pmatheus)
 - Build: fail cgo-disabled CLI builds at compile time instead of shipping a go-sqlite3 stub binary. (#194 — thanks @rajgopalv)
 - Chats: resolve mapped historical `@lid` chat rows in `chats list/show` output. (#31, #89 — thanks @bhaskoro-muthohar and @alexph-dev)
