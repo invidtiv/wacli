@@ -362,6 +362,29 @@ func (d *DB) GetOldestMessageInfo(chatJID string) (MessageInfo, error) {
 	return out, nil
 }
 
+func (d *DB) GetLatestMessageInfo(chatJID string) (MessageInfo, error) {
+	chatJID = strings.TrimSpace(chatJID)
+	if chatJID == "" {
+		return MessageInfo{}, fmt.Errorf("chat JID is required")
+	}
+	row := d.sql.QueryRow(`
+		SELECT m.chat_jid, m.msg_id, m.ts, m.from_me, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,'')
+		FROM messages m
+		WHERE m.chat_jid = ?
+		ORDER BY m.ts DESC, m.rowid DESC
+		LIMIT 1
+	`, chatJID)
+	var out MessageInfo
+	var ts int64
+	var fromMe int
+	if err := row.Scan(&out.ChatJID, &out.MsgID, &ts, &fromMe, &out.SenderJID, &out.SenderName); err != nil {
+		return MessageInfo{}, err
+	}
+	out.Timestamp = fromUnix(ts)
+	out.FromMe = fromMe != 0
+	return out, nil
+}
+
 func (d *DB) MessageContext(chatJID, msgID string, before, after int) ([]Message, error) {
 	if before < 0 {
 		before = 0

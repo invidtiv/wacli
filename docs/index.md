@@ -11,6 +11,7 @@ A script-friendly WhatsApp CLI built on [`whatsmeow`](https://github.com/tulir/w
 ## Why wacli
 
 - **Local mirror, fast search.** All synced messages land in a SQLite store with an FTS5 index; offline `messages search` returns hits in milliseconds.
+- **Chat state controls.** Archive, pin, mute, and mark chats read/unread from the CLI, then filter `chats list` by those states.
 - **Stable output.** Human-readable tables by default, `--json` to stdout for scripts, NDJSON `--events` for long-running commands. Human progress, prompts, and errors stay on stderr so pipes stay clean.
 - **Single binary.** No daemon, no plugin host. Run `wacli auth`, then `wacli sync --follow` to keep the store warm.
 - **Built for agents.** `--read-only` (or `WACLI_READONLY=1`) blocks every command that mutates WhatsApp or local state. Store locks prevent two instances from racing on the same device identity.
@@ -21,6 +22,7 @@ A script-friendly WhatsApp CLI built on [`whatsmeow`](https://github.com/tulir/w
 
 - **Trying it.** Read [Install](install.md), then [Quickstart](quickstart.md). Pair, sync, and send your first message in under five minutes.
 - **Searching old chats.** Read [Sync](sync.md) for the sync model and [History](history.md) for on-demand backfill.
+- **Managing chat state.** Read [Chats](chats.md) for archive, pin, mute, and read/unread commands.
 - **Sending from scripts.** Read [Send](send.md) for recipient resolution, replies, mentions, files, and reactions.
 - **Wiring up an agent.** Pair `--read-only`, `--json`, and `--events` from [Overview](overview.md); read [Doctor](doctor.md) for self-checks.
 - **Looking up a flag.** Open the per-command pages from [Overview](overview.md).

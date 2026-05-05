@@ -7,7 +7,11 @@ const coreSchemaSQL = `
 		jid TEXT PRIMARY KEY,
 		kind TEXT NOT NULL, -- dm|group|broadcast|unknown
 		name TEXT,
-		last_message_ts INTEGER
+		last_message_ts INTEGER,
+		archived INTEGER NOT NULL DEFAULT 0,
+		pinned INTEGER NOT NULL DEFAULT 0,
+		muted_until INTEGER NOT NULL DEFAULT 0,
+		unread INTEGER NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS contacts (

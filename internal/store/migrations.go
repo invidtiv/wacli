@@ -23,6 +23,7 @@ var schemaMigrations = []migration{
 	{version: 7, name: "starred messages", up: migrateStarredMessages},
 	{version: 8, name: "messages revoked column", up: migrateMessagesRevokedColumn},
 	{version: 9, name: "messages deleted_for_me column", up: migrateMessagesDeletedForMeColumn},
+	{version: 10, name: "chat state columns", up: migrateChatStateColumns},
 }
 
 func (d *DB) ensureSchema() error {
@@ -182,6 +183,31 @@ func migrateMessagesDeletedForMeColumn(d *DB) error {
 		}
 	}
 	return migrateMessagesFTS(d)
+}
+
+func migrateChatStateColumns(d *DB) error {
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"archived", "ALTER TABLE chats ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"},
+		{"pinned", "ALTER TABLE chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"},
+		{"muted_until", "ALTER TABLE chats ADD COLUMN muted_until INTEGER NOT NULL DEFAULT 0"},
+		{"unread", "ALTER TABLE chats ADD COLUMN unread INTEGER NOT NULL DEFAULT 0"},
+	}
+	for _, col := range cols {
+		has, err := d.tableHasColumn("chats", col.name)
+		if err != nil {
+			return err
+		}
+		if has {
+			continue
+		}
+		if _, err := d.sql.Exec(col.ddl); err != nil {
+			return fmt.Errorf("add chats.%s column: %w", col.name, err)
+		}
+	}
+	return nil
 }
 
 func migrateMessagesFTS(d *DB) error {

@@ -21,6 +21,7 @@
 - Auth: add `auth --qr-format text` to print the raw WhatsApp QR payload for external renderers. (#22 — thanks @teren-papercutlabs)
 - Auth: add `auth --phone` for WhatsApp's phone-number pairing flow on headless systems. (#148, #184 — thanks @giovanninibarbosa and @KillerSnails)
 - Auth: auto-detect a readable linked-device label and default linked-device platform to desktop. (#100 — thanks @pmatheus)
+- Chats: add archive/unarchive, pin/unpin, mute/unmute, and mark-read/mark-unread commands, plus list/show state fields. (#46 — thanks @decodiver22)
 - Profile: add `profile set-picture` to update the authenticated account profile picture from JPEG or PNG input. (#198 — thanks @gado-ships-it)
 - Sync: add signed live-message webhooks with `--webhook` and `--webhook-secret`. (#203 — thanks @dinakars777 and @Melostack)
 - Send: add `send react` to add or clear reactions, with group sender validation. (#151 — thanks @draix)

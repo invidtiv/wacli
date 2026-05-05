@@ -66,6 +66,9 @@ func (a *App) addSyncEventHandler(ctx context.Context, opts SyncOptions, message
 		case *events.DeleteForMe:
 			lastEvent.Store(nowUTC().UnixNano())
 			a.handleDeleteForMeEvent(ctx, v)
+		case *events.Archive, *events.Pin, *events.Mute, *events.MarkChatAsRead:
+			lastEvent.Store(nowUTC().UnixNano())
+			a.handleChatStateEvent(ctx, v)
 		case *events.Connected:
 			a.emitOrPrint("connected", nil, "\nConnected.\n")
 		case *events.Disconnected:

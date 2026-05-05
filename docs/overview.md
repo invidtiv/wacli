@@ -25,7 +25,7 @@ Read when: you need the user-facing command map, global flags, store model, or l
 - [send](send.md) - send text, files, stickers, replies, and reactions.
 - [media](media.md) - download media attached to stored messages.
 - [contacts](contacts.md) - search contacts and manage local aliases/tags.
-- [chats](chats.md) - list and show known chats.
+- [chats](chats.md) - list, show, filter, and manage known chat state.
 - [groups](groups.md) - refresh, inspect, rename, leave, join, invite, and manage participants.
 - [history](history.md) - request older per-chat history from the primary device.
 - [presence](presence.md) - send typing/paused indicators.
@@ -50,6 +50,8 @@ wacli send text --to mom --message "hello"
 Commands that accept `PHONE_OR_JID` accept a WhatsApp JID like `1234567890@s.whatsapp.net`, a group JID like `123456789@g.us`, or a phone number with common formatting such as `+1 (234) 567-8900`.
 
 `send text`, `send file`, `send sticker`, and `send voice` also accept synced contact, group, or chat names through `RECIPIENT`. If a name is ambiguous, interactive terminals prompt; scripts can use `--pick N`.
+
+`chats archive`, `chats pin`, `chats mute`, and `chats mark-read` use the same synced contact/group/chat resolver through `--chat`. Pass a raw JID when you need an exact target.
 
 ## History limits
 

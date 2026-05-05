@@ -8,10 +8,18 @@ import (
 )
 
 type Chat struct {
-	JID           string
-	Kind          string
-	Name          string
-	LastMessageTS time.Time
+	JID           string    `json:"jid"`
+	Kind          string    `json:"kind"`
+	Name          string    `json:"name"`
+	LastMessageTS time.Time `json:"last_message_ts"`
+	Archived      bool      `json:"archived"`
+	Pinned        bool      `json:"pinned"`
+	MutedUntil    int64     `json:"muted_until"`
+	Unread        bool      `json:"unread"`
+}
+
+func (c Chat) Muted() bool {
+	return c.MutedUntil == -1 || (c.MutedUntil > 0 && time.Now().Unix() < c.MutedUntil)
 }
 
 type Group struct {

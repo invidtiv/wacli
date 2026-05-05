@@ -244,7 +244,7 @@ func TestDeleteForMeEventMarksMessageDeletedForCurrentUser(t *testing.T) {
 	}
 }
 
-func TestSyncFetchesRegularHighAppStateDeltasAfterConnect(t *testing.T) {
+func TestSyncFetchesChatAppStateDeltasAfterConnect(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeWA()
 	a.wa = f
@@ -264,15 +264,25 @@ func TestSyncFetchesRegularHighAppStateDeltasAfterConnect(t *testing.T) {
 		t.Fatalf("UpsertMessage: %v", err)
 	}
 	f.appStateFetchEvent = func(name string, fullSync, onlyIfNotSynced bool) interface{} {
-		if name != string(appstate.WAPatchRegularHigh) || fullSync || onlyIfNotSynced {
+		if fullSync || onlyIfNotSynced {
 			return nil
 		}
-		return &events.DeleteForMe{
-			ChatJID:   chat,
-			MessageID: "m-offline-delete-for-me",
-			Timestamp: base.Add(time.Minute),
-			IsFromMe:  false,
+		if name == string(appstate.WAPatchRegularHigh) {
+			return &events.DeleteForMe{
+				ChatJID:   chat,
+				MessageID: "m-offline-delete-for-me",
+				Timestamp: base.Add(time.Minute),
+				IsFromMe:  false,
+			}
 		}
+		if name == string(appstate.WAPatchRegularLow) {
+			return &events.Archive{
+				JID:       chat,
+				Timestamp: base.Add(2 * time.Minute),
+				Action:    &waSyncAction.ArchiveChatAction{Archived: proto.Bool(true)},
+			}
+		}
+		return nil
 	}
 
 	res, err := a.Sync(context.Background(), SyncOptions{
@@ -288,8 +298,14 @@ func TestSyncFetchesRegularHighAppStateDeltasAfterConnect(t *testing.T) {
 	f.mu.Lock()
 	fetches := append([]fakeAppStateFetch(nil), f.appStateFetches...)
 	f.mu.Unlock()
-	if len(fetches) != 1 || fetches[0].name != string(appstate.WAPatchRegularHigh) || fetches[0].fullSync || fetches[0].onlyIfNotSynced {
+	if len(fetches) != 2 {
 		t.Fatalf("app state fetches = %+v", fetches)
+	}
+	if fetches[0].name != string(appstate.WAPatchRegularHigh) || fetches[0].fullSync || fetches[0].onlyIfNotSynced {
+		t.Fatalf("first app state fetch = %+v", fetches[0])
+	}
+	if fetches[1].name != string(appstate.WAPatchRegularLow) || fetches[1].fullSync || fetches[1].onlyIfNotSynced {
+		t.Fatalf("second app state fetch = %+v", fetches[1])
 	}
 	msg, err := a.db.GetMessage(chat.String(), "m-offline-delete-for-me")
 	if err != nil {
@@ -297,6 +313,95 @@ func TestSyncFetchesRegularHighAppStateDeltasAfterConnect(t *testing.T) {
 	}
 	if !msg.DeletedForMe {
 		t.Fatalf("message was not marked deleted for me: %+v", msg)
+	}
+	storedChat, err := a.db.GetChat(chat.String())
+	if err != nil {
+		t.Fatalf("GetChat: %v", err)
+	}
+	if !storedChat.Archived {
+		t.Fatalf("chat was not marked archived from regular_low app state: %+v", storedChat)
+	}
+}
+
+func TestChatStateEventsUpdateLocalStore(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	chat := types.JID{User: "456", Server: types.DefaultUserServer}
+	if err := a.db.UpsertChat(chat.String(), "dm", "Bob", time.Now()); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+
+	a.handleChatStateEvent(context.Background(), &events.Archive{
+		JID:    chat,
+		Action: &waSyncAction.ArchiveChatAction{Archived: proto.Bool(true)},
+	})
+	a.handleChatStateEvent(context.Background(), &events.Pin{
+		JID:    chat,
+		Action: &waSyncAction.PinAction{Pinned: proto.Bool(true)},
+	})
+	a.handleChatStateEvent(context.Background(), &events.Mute{
+		JID:    chat,
+		Action: &waSyncAction.MuteAction{Muted: proto.Bool(true), MuteEndTimestamp: proto.Int64(-1)},
+	})
+	a.handleChatStateEvent(context.Background(), &events.MarkChatAsRead{
+		JID:    chat,
+		Action: &waSyncAction.MarkChatAsReadAction{Read: proto.Bool(false)},
+	})
+
+	c, err := a.db.GetChat(chat.String())
+	if err != nil {
+		t.Fatalf("GetChat: %v", err)
+	}
+	if !c.Archived || !c.Pinned || c.MutedUntil != -1 || !c.Unread {
+		t.Fatalf("chat state = %+v", c)
+	}
+}
+
+func TestArchiveChatUsesLatestMessageRange(t *testing.T) {
+	a := newTestApp(t)
+	f := newFakeWA()
+	a.wa = f
+
+	chat := types.JID{User: "456", Server: types.DefaultUserServer}
+	when := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+	if err := a.db.UpsertChat(chat.String(), "dm", "Bob", when); err != nil {
+		t.Fatalf("UpsertChat: %v", err)
+	}
+	if err := a.db.UpsertMessage(store.UpsertMessageParams{
+		ChatJID:   chat.String(),
+		MsgID:     "latest",
+		SenderJID: chat.String(),
+		Timestamp: when,
+		FromMe:    true,
+		Text:      "hi",
+	}); err != nil {
+		t.Fatalf("UpsertMessage: %v", err)
+	}
+
+	if err := a.ArchiveChat(context.Background(), chat, true); err != nil {
+		t.Fatalf("ArchiveChat: %v", err)
+	}
+
+	f.mu.Lock()
+	calls := append([]fakeArchiveCall(nil), f.archiveCalls...)
+	f.mu.Unlock()
+	if len(calls) != 1 {
+		t.Fatalf("archive calls = %d", len(calls))
+	}
+	if !calls[0].lastMsgTS.Equal(when) {
+		t.Fatalf("lastMsgTS = %s, want %s", calls[0].lastMsgTS, when)
+	}
+	if calls[0].lastMsgKey == nil || calls[0].lastMsgKey.GetID() != "latest" || !calls[0].lastMsgKey.GetFromMe() {
+		t.Fatalf("lastMsgKey = %+v", calls[0].lastMsgKey)
+	}
+	c, err := a.db.GetChat(chat.String())
+	if err != nil {
+		t.Fatalf("GetChat: %v", err)
+	}
+	if !c.Archived {
+		t.Fatalf("expected local archived state, got %+v", c)
 	}
 }
 

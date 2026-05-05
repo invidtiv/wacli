@@ -21,20 +21,45 @@ import (
 func newChatsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chats",
-		Short: "List chats from the local DB",
+		Short: "List and manage chats",
 	}
 	cmd.AddCommand(newChatsListCmd(flags))
 	cmd.AddCommand(newChatsShowCmd(flags))
+	cmd.AddCommand(newChatsArchiveCmd(flags, true))
+	cmd.AddCommand(newChatsArchiveCmd(flags, false))
+	cmd.AddCommand(newChatsPinCmd(flags, true))
+	cmd.AddCommand(newChatsPinCmd(flags, false))
+	cmd.AddCommand(newChatsMuteCmd(flags))
+	cmd.AddCommand(newChatsUnmuteCmd(flags))
+	cmd.AddCommand(newChatsMarkReadCmd(flags, true))
+	cmd.AddCommand(newChatsMarkReadCmd(flags, false))
 	return cmd
 }
 
 func newChatsListCmd(flags *rootFlags) *cobra.Command {
 	var query string
 	var limit int
+	var archived, noArchived bool
+	var pinned, noPinned bool
+	var muted, noMuted bool
+	var unread, noUnread bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List chats",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateBoolFilter("archived", archived, noArchived); err != nil {
+				return err
+			}
+			if err := validateBoolFilter("pinned", pinned, noPinned); err != nil {
+				return err
+			}
+			if err := validateBoolFilter("muted", muted, noMuted); err != nil {
+				return err
+			}
+			if err := validateBoolFilter("unread", unread, noUnread); err != nil {
+				return err
+			}
+
 			ctx, cancel := withTimeout(context.Background(), flags)
 			defer cancel()
 
@@ -44,7 +69,15 @@ func newChatsListCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer closeApp(a, lk)
 
-			chats, err := a.DB().ListChats(query, limit)
+			filter := store.ChatListFilter{
+				Query:    query,
+				Limit:    limit,
+				Archived: boolFilter(archived, noArchived),
+				Pinned:   boolFilter(pinned, noPinned),
+				Muted:    boolFilter(muted, noMuted),
+				Unread:   boolFilter(unread, noUnread),
+			}
+			chats, err := a.DB().ListChatsFiltered(filter)
 			if err != nil {
 				return err
 			}
@@ -55,13 +88,13 @@ func newChatsListCmd(flags *rootFlags) *cobra.Command {
 
 			fullOutput := fullTableOutput(flags.fullOutput)
 			w := newTableWriter(os.Stdout)
-			fmt.Fprintln(w, "KIND\tNAME\tJID\tLAST")
+			fmt.Fprintln(w, "KIND\tNAME\tJID\tLAST\tFLAGS")
 			for _, c := range chats {
 				name := c.Name
 				if name == "" {
 					name = c.JID
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.Kind, tableCell(name, 28, fullOutput), c.JID, c.LastMessageTS.Local().Format("2006-01-02 15:04:05"))
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", c.Kind, tableCell(name, 28, fullOutput), c.JID, c.LastMessageTS.Local().Format("2006-01-02 15:04:05"), chatFlagsString(c))
 			}
 			_ = w.Flush()
 			return nil
@@ -69,6 +102,14 @@ func newChatsListCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&query, "query", "", "search query")
 	cmd.Flags().IntVar(&limit, "limit", 50, "limit")
+	cmd.Flags().BoolVar(&archived, "archived", false, "show only archived chats")
+	cmd.Flags().BoolVar(&noArchived, "no-archived", false, "exclude archived chats")
+	cmd.Flags().BoolVar(&pinned, "pinned", false, "show only pinned chats")
+	cmd.Flags().BoolVar(&noPinned, "no-pinned", false, "exclude pinned chats")
+	cmd.Flags().BoolVar(&muted, "muted", false, "show only muted chats")
+	cmd.Flags().BoolVar(&noMuted, "no-muted", false, "exclude muted chats")
+	cmd.Flags().BoolVar(&unread, "unread", false, "show only unread chats")
+	cmd.Flags().BoolVar(&noUnread, "no-unread", false, "exclude unread chats")
 	return cmd
 }
 
@@ -97,7 +138,8 @@ func newChatsShowCmd(flags *rootFlags) *cobra.Command {
 			if flags.asJSON {
 				return out.WriteJSON(os.Stdout, c)
 			}
-			fmt.Fprintf(os.Stdout, "JID: %s\nKind: %s\nName: %s\nLast: %s\n", c.JID, c.Kind, c.Name, c.LastMessageTS.Local().Format(time.RFC3339))
+			fmt.Fprintf(os.Stdout, "JID: %s\nKind: %s\nName: %s\nLast: %s\nArchived: %t\nPinned: %t\nMuted: %t\nMuted until: %s\nUnread: %t\n",
+				c.JID, c.Kind, c.Name, c.LastMessageTS.Local().Format(time.RFC3339), c.Archived, c.Pinned, c.Muted(), formatMutedUntil(c.MutedUntil), c.Unread)
 			return nil
 		},
 	}

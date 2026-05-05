@@ -453,6 +453,19 @@ func TestCountMessagesAndOldestMessageInfo(t *testing.T) {
 	if oldest.FromMe {
 		t.Fatalf("expected oldest.FromMe=false")
 	}
+	latest, err := db.GetLatestMessageInfo(chat)
+	if err != nil {
+		t.Fatalf("GetLatestMessageInfo: %v", err)
+	}
+	if latest.MsgID != "m2" {
+		t.Fatalf("expected latest m2, got %q", latest.MsgID)
+	}
+	if !latest.Timestamp.Equal(base.Add(2 * time.Second)) {
+		t.Fatalf("unexpected latest timestamp: %s", latest.Timestamp)
+	}
+	if !latest.FromMe {
+		t.Fatalf("expected latest.FromMe=true")
+	}
 
 	if n, err := db.CountMessages(); err != nil || n != 2 {
 		t.Fatalf("CountMessages expected 2, got %d (err=%v)", n, err)

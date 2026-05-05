@@ -11,6 +11,7 @@ import (
 	"github.com/steipete/wacli/internal/wa"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/proto/waWeb"
@@ -45,10 +46,39 @@ type fakeWA struct {
 	appStateRecoveryErr error
 	appStateFetchErr    error
 	appStateFetchEvent  func(name string, fullSync, onlyIfNotSynced bool) interface{}
+	archiveCalls        []fakeArchiveCall
+	pinCalls            []fakePinCall
+	muteCalls           []fakeMuteCall
+	markReadCalls       []fakeMarkReadCall
 
 	manualHistorySyncCalls []bool
 	appStateRecoveries     []string
 	appStateFetches        []fakeAppStateFetch
+}
+
+type fakeArchiveCall struct {
+	target     types.JID
+	archive    bool
+	lastMsgTS  time.Time
+	lastMsgKey *waCommon.MessageKey
+}
+
+type fakePinCall struct {
+	target types.JID
+	pin    bool
+}
+
+type fakeMuteCall struct {
+	target   types.JID
+	mute     bool
+	duration time.Duration
+}
+
+type fakeMarkReadCall struct {
+	target     types.JID
+	read       bool
+	lastMsgTS  time.Time
+	lastMsgKey *waCommon.MessageKey
 }
 
 type fakeAppStateFetch struct {
@@ -404,6 +434,34 @@ func (f *fakeWA) RequestAppStateRecovery(ctx context.Context, name string) (type
 }
 
 func (f *fakeWA) DeleteMessageForMe(ctx context.Context, info types.MessageInfo, deleteMedia bool) error {
+	return nil
+}
+
+func (f *fakeWA) ArchiveChat(ctx context.Context, target types.JID, archive bool, lastMsgTS time.Time, lastMsgKey *waCommon.MessageKey) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.archiveCalls = append(f.archiveCalls, fakeArchiveCall{target: target, archive: archive, lastMsgTS: lastMsgTS, lastMsgKey: lastMsgKey})
+	return nil
+}
+
+func (f *fakeWA) PinChat(ctx context.Context, target types.JID, pin bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pinCalls = append(f.pinCalls, fakePinCall{target: target, pin: pin})
+	return nil
+}
+
+func (f *fakeWA) MuteChat(ctx context.Context, target types.JID, mute bool, duration time.Duration) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.muteCalls = append(f.muteCalls, fakeMuteCall{target: target, mute: mute, duration: duration})
+	return nil
+}
+
+func (f *fakeWA) MarkChatAsRead(ctx context.Context, target types.JID, read bool, lastMsgTS time.Time, lastMsgKey *waCommon.MessageKey) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.markReadCalls = append(f.markReadCalls, fakeMarkReadCall{target: target, read: read, lastMsgTS: lastMsgTS, lastMsgKey: lastMsgKey})
 	return nil
 }
 

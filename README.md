@@ -25,7 +25,7 @@ Full docs site: <https://wacli.sh>.
 - [Send](docs/send.md): `send text/file/sticker/voice/react`, recipient resolution, replies.
 - [Media](docs/media.md): `media download`.
 - [Contacts](docs/contacts.md): `contacts search/show/refresh`, aliases, tags.
-- [Chats](docs/chats.md): `chats list/show`.
+- [Chats](docs/chats.md): `chats list/show`, archive, pin, mute, mark read.
 - [Groups](docs/groups.md): group list, refresh, info, rename, leave, participants, invites, join.
 - [History](docs/history.md): `history backfill`.
 - [Presence](docs/presence.md): `presence typing/paused`.
@@ -44,7 +44,7 @@ Full docs site: <https://wacli.sh>.
 - **Message tools**: list/search/show/context with chat, sender, direction, time, order, and media-type filters.
 - **Sending**: send text, mentions, quoted replies, stickers, and image/video/audio/document files with captions, MIME override, and custom display filenames. Sends keep a short retry-receipt grace window, and rapid repeated sends warn on stderr.
 - **Media**: download synced message media on demand, or download in the background during auth/sync; send-file uploads and downloads are capped at 100 MiB.
-- **Contacts/chats/groups**: search/show contacts, local aliases/tags, list/show chats, refresh/list/info/rename groups, manage participants, invite links, join, and leave; left groups are hidden after leave.
+- **Contacts/chats/groups**: search/show contacts, local aliases/tags, list/show/filter chats, archive/pin/mute/mark-read chats, refresh/list/info/rename groups, manage participants, invite links, join, and leave; left groups are hidden after leave.
 - **Presence**: send typing/paused indicators.
 - **Profile**: set the authenticated account profile picture from JPEG or PNG input.
 - **Diagnostics + safety**: `doctor`, read-only mode, store locks with lock-owner reporting, lock waiting, owner-only database permissions, panic recovery, reconnect bounds, and bounded media queue backpressure.
@@ -119,6 +119,11 @@ pnpm wacli history backfill --chat 1234567890@s.whatsapp.net --requests 10 --cou
 # Download media for a message (after syncing)
 pnpm wacli media download --chat 1234567890@s.whatsapp.net --id <message-id>
 
+# Filter and manage chat state
+pnpm wacli chats list --pinned
+pnpm wacli chats mute --chat mom --duration 8h
+pnpm wacli chats mark-read --chat 1234567890@s.whatsapp.net
+
 # Send a message by phone/JID, or by a synced contact/group/chat name
 pnpm wacli send text --to 1234567890 --message "hello"
 # Link previews are added automatically for the first http(s) URL; use --no-preview to skip.
@@ -191,8 +196,13 @@ Full command docs live under [docs/overview.md](docs/overview.md). Quick referen
 - `wacli contacts refresh`
 - `wacli contacts alias set|rm --jid JID [--alias NAME]`
 - `wacli contacts tags add|rm --jid JID --tag TAG`
-- `wacli chats list [--query TEXT] [--limit N]`
+- `wacli chats list [--query TEXT] [--limit N] [--archived|--no-archived] [--pinned|--no-pinned] [--muted|--no-muted] [--unread|--no-unread]`
 - `wacli chats show --jid JID`
+- `wacli chats archive|unarchive --chat CHAT [--pick N]`
+- `wacli chats pin|unpin --chat CHAT [--pick N]`
+- `wacli chats mute --chat CHAT [--duration DURATION] [--pick N]`
+- `wacli chats unmute --chat CHAT [--pick N]`
+- `wacli chats mark-read|mark-unread --chat CHAT [--pick N]`
 - `wacli groups list [--query TEXT] [--limit N]`
 - `wacli groups refresh`
 - `wacli groups info --jid GROUP_JID`

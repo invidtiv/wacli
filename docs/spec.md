@@ -96,7 +96,7 @@ Immediately after QR pairing success, `wacli auth` runs a bootstrap sync:
 ### Tables (proposed)
 
 - `chats`
-  - `jid` (PK), `name`, `kind` (`dm|group|broadcast`), `last_message_ts`, …
+  - `jid` (PK), `name`, `kind` (`dm|group|broadcast`), `last_message_ts`, `archived`, `pinned`, `muted_until`, `unread`, …
 - `contacts`
   - `jid` (PK), `push_name`, `full_name`, `business_name`, `phone`, …
 - `groups`
@@ -211,8 +211,13 @@ or writing unexpectedly large payloads in one command.
 
 ### Chats
 
-- `wacli chats list [--query TEXT]`
+- `wacli chats list [--query TEXT] [--limit N] [--archived|--no-archived] [--pinned|--no-pinned] [--muted|--no-muted] [--unread|--no-unread]`
 - `wacli chats show --jid JID`
+- `wacli chats archive|unarchive --chat CHAT [--pick N]`
+- `wacli chats pin|unpin --chat CHAT [--pick N]`
+- `wacli chats mute --chat CHAT [--duration DURATION] [--pick N]`
+- `wacli chats unmute --chat CHAT [--pick N]`
+- `wacli chats mark-read|mark-unread --chat CHAT [--pick N]`
 
 ### Groups
 

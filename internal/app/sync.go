@@ -150,7 +150,7 @@ func (a *App) Sync(ctx context.Context, opts SyncOptions) (SyncResult, error) {
 }
 
 func (a *App) syncAppStateDeltas(ctx context.Context) {
-	for _, name := range []appstate.WAPatchName{appstate.WAPatchRegularHigh} {
+	for _, name := range []appstate.WAPatchName{appstate.WAPatchRegularHigh, appstate.WAPatchRegularLow} {
 		if err := a.wa.FetchAppState(ctx, string(name), false, false); err != nil {
 			a.emitWarning(
 				"app_state_sync_failed",

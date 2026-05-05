@@ -40,6 +40,7 @@ func (c *Client) init() error {
 
 	logger := waLog.Stdout("Client", "ERROR", true)
 	c.client = whatsmeow.NewClient(deviceStore, logger)
+	c.client.EmitAppStateEventsOnFullSync = true
 	// Persist recently-sent messages so whatsmeow can answer retry-receipts
 	// across process restarts. Without this, recipients whose Signal session
 	// has not been freshly bootstrapped (typically other linked devices) see

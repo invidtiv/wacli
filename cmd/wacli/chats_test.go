@@ -82,3 +82,16 @@ func TestResolveStoredChatsMergesMappedDuplicates(t *testing.T) {
 		t.Fatalf("merged chat = %+v", got[0])
 	}
 }
+
+func TestChatFlagsString(t *testing.T) {
+	got := chatFlagsString(store.Chat{Pinned: true, Archived: true, MutedUntil: -1, Unread: true})
+	if got != "pinned,archived,muted,unread" {
+		t.Fatalf("flags = %q", got)
+	}
+	if err := validateBoolFilter("archived", true, true); err == nil {
+		t.Fatal("expected mutually exclusive filter error")
+	}
+	if err := validateBoolFilter("archived", true, false); err != nil {
+		t.Fatalf("unexpected filter error: %v", err)
+	}
+}
