@@ -31,6 +31,7 @@ Read when: you need the user-facing command map, global flags, store model, or l
 - [presence](presence.md) - send typing/paused indicators.
 - [profile](profile.md) - set the authenticated account profile picture.
 - [doctor](doctor.md) - diagnose store, auth, search, and optional live connectivity.
+- [docs](docs.md) - print the hosted documentation URL.
 - [version](version.md) - print the CLI version.
 - [completion](completion.md) - generate shell completion scripts.
 - [help](help.md) - inspect command help from the CLI.

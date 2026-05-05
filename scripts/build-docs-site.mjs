@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { css, faviconSvg, js, socialCardSvg } from "./docs-site-assets.mjs";
+import { css, faviconSvg, js, socialCardSvg, themeBootstrapScript, themeToggleMarkup } from "./docs-site-assets.mjs";
 import { escapeAttr, escapeHtml, markdownToHtml, tocFromHtml, validateLinks } from "./docs-site-render.mjs";
 
 const root = process.cwd();
@@ -24,7 +24,7 @@ const sections = [
   ["Auth & Sync", ["auth.md", "sync.md", "history.md", "doctor.md"]],
   ["Messages", ["messages.md", "send.md", "media.md", "presence.md"]],
   ["Contacts & Groups", ["contacts.md", "chats.md", "groups.md", "profile.md"]],
-  ["Reference", ["spec.md", "completion.md", "version.md", "help.md", "release.md"]],
+  ["Reference", ["spec.md", "docs.md", "completion.md", "version.md", "help.md", "release.md"]],
 ];
 
 const buildExcludes = [];
@@ -262,6 +262,7 @@ function layout({ page, html, toc, prev, next, sectionName }) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>${themeBootstrapScript()}</script>
   <style>${css()}</style>
 </head>
 <body${home ? ' class="home"' : ""}>
@@ -270,12 +271,15 @@ function layout({ page, html, toc, prev, next, sectionName }) {
   </button>
   <div class="shell">
     <aside class="sidebar">
-      <a class="brand" href="${hrefToOutRel("index.html", page.outRel)}" aria-label="${productName} docs home">
-        <span class="mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28" role="presentation"><path d="M16 3a13 13 0 0 0-11.18 19.6L3 29l6.6-1.74A13 13 0 1 0 16 3Zm7.6 18.43c-.32.9-1.86 1.7-2.6 1.78-.66.07-1.5.1-2.43-.15a13.5 13.5 0 0 1-2.2-.83c-3.88-1.68-6.4-5.6-6.6-5.85-.18-.26-1.55-2.06-1.55-3.93 0-1.86.98-2.78 1.32-3.16.34-.38.74-.47.99-.47.25 0 .5 0 .71.01.23.01.54-.09.84.64.32.79 1.07 2.66 1.16 2.86.1.2.16.43.03.69-.13.26-.2.42-.4.65-.2.23-.42.5-.6.68-.2.2-.41.4-.18.79.23.39 1.04 1.71 2.23 2.77 1.53 1.36 2.83 1.78 3.22 1.97.39.2.62.16.84-.1.23-.27.97-1.13 1.23-1.52.26-.39.52-.32.88-.2.36.13 2.27 1.07 2.66 1.27.39.2.65.3.74.46.1.17.1.96-.22 1.86Z" fill="#25d366"/></svg>
-        </span>
-        <span><strong>${escapeHtml(productName)}</strong><small>WhatsApp CLI docs</small></span>
-      </a>
+      <div class="sidebar-head">
+        <a class="brand" href="${hrefToOutRel("index.html", page.outRel)}" aria-label="${productName} docs home">
+          <span class="mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="28" height="28" role="presentation"><path d="M16 3a13 13 0 0 0-11.18 19.6L3 29l6.6-1.74A13 13 0 1 0 16 3Zm7.6 18.43c-.32.9-1.86 1.7-2.6 1.78-.66.07-1.5.1-2.43-.15a13.5 13.5 0 0 1-2.2-.83c-3.88-1.68-6.4-5.6-6.6-5.85-.18-.26-1.55-2.06-1.55-3.93 0-1.86.98-2.78 1.32-3.16.34-.38.74-.47.99-.47.25 0 .5 0 .71.01.23.01.54-.09.84.64.32.79 1.07 2.66 1.16 2.86.1.2.16.43.03.69-.13.26-.2.42-.4.65-.2.23-.42.5-.6.68-.2.2-.41.4-.18.79.23.39 1.04 1.71 2.23 2.77 1.53 1.36 2.83 1.78 3.22 1.97.39.2.62.16.84-.1.23-.27.97-1.13 1.23-1.52.26-.39.52-.32.88-.2.36.13 2.27 1.07 2.66 1.27.39.2.65.3.74.46.1.17.1.96-.22 1.86Z" fill="#25d366"/></svg>
+          </span>
+          <span><strong>${escapeHtml(productName)}</strong><small>WhatsApp CLI docs</small></span>
+        </a>
+        ${themeToggleMarkup()}
+      </div>
       <label class="search"><span>Search</span><input id="doc-search" type="search" placeholder="auth, sync, send"></label>
       <nav>${navHtml(page)}</nav>
     </aside>

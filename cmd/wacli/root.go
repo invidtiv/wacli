@@ -18,6 +18,8 @@ import (
 
 var version = "0.7.0"
 
+const docsURL = "https://wacli.sh"
+
 type rootFlags struct {
 	storeDir   string
 	asJSON     bool
@@ -33,6 +35,8 @@ func execute(args []string) error {
 
 	rootCmd := &cobra.Command{
 		Use:           "wacli",
+		Short:         "WhatsApp CLI: sync, search, send",
+		Long:          "wacli is a WhatsApp CLI for syncing, searching, and sending from local scripts.\n\nDocs: " + docsURL,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version,
@@ -60,6 +64,7 @@ func execute(args []string) error {
 	rootCmd.AddCommand(newHistoryCmd(&flags))
 	rootCmd.AddCommand(newPresenceCmd(&flags))
 	rootCmd.AddCommand(newProfileCmd(&flags))
+	rootCmd.AddCommand(newDocsCmd(&flags))
 
 	rootCmd.SetArgs(args)
 	if err := rootCmd.Execute(); err != nil {

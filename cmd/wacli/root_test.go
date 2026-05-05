@@ -32,6 +32,28 @@ func captureRootStderr(t *testing.T, fn func()) string {
 	return <-done
 }
 
+func captureRootStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+
+	done := make(chan string, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.String()
+	}()
+
+	fn()
+	_ = w.Close()
+	return <-done
+}
+
 func TestWriteRootErrorEventsUsesNDJSON(t *testing.T) {
 	raw := captureRootStderr(t, func() {
 		writeRootError(rootFlags{events: true}, errors.New("boom"))
