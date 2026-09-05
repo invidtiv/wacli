@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Contacts: bound system-contact exports while reading the macOS helper, preserving the existing 10 MiB file-import limit. (#376 - thanks @SebTardif)
+
 - Messages: extract comment bodies and album summaries in live/history sync, preserving comment reply targets and matching quote metadata. (#383 - thanks @shishiv and @Entretoize)
 
 - CLI: keep successful JSON commands successful when a pipe reader closes early, including Unix stdout SIGPIPE and Windows closed-pipe errors. (#366 - thanks @SebTardif)
