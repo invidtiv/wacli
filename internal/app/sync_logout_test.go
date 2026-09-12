@@ -430,3 +430,24 @@ func TestSyncFollowStopsWhenLoggedOut(t *testing.T) {
 		t.Fatalf("connectCalls = %d after logout, want 1 (initial connect, no reconnect)", calls)
 	}
 }
+
+func TestRunSyncFollowCancellationRemainsSuccessful(t *testing.T) {
+	a := newTestApp(t)
+	var messagesStored, connectionEpoch atomic.Int64
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := a.runSyncFollow(
+		ctx,
+		time.Second,
+		SyncPresenceModeNormal,
+		&messagesStored,
+		&connectionEpoch,
+		make(chan struct{}, 1),
+		make(chan struct{}, 1),
+		make(chan staleReconnectRequest, 1),
+	)
+	if err != nil {
+		t.Fatalf("operator cancellation returned error: %v", err)
+	}
+}

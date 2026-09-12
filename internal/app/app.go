@@ -116,6 +116,9 @@ type App struct {
 	opts            Options
 	waMu            sync.Mutex
 	wa              WAClient
+	sessionState    *sessionObservation
+	sessionHandler  uint32
+	connectGate     chan struct{}
 	sessionResolver *readOnlySessionResolver
 	db              *store.DB
 	statusMu        sync.Mutex
@@ -158,21 +161,27 @@ func New(opts Options) (*App, error) {
 func (a *App) OpenWA() error {
 	a.waMu.Lock()
 	defer a.waMu.Unlock()
-	if a.wa != nil {
-		return nil
-	}
 	if a.opts.ReadOnly {
+		if a.wa != nil {
+			return nil
+		}
 		return fmt.Errorf("read-only mode: command would open the WhatsApp session store")
 	}
-	sessionPath := filepath.Join(a.opts.StoreDir, "session.db")
-	cli, err := wa.New(wa.Options{
-		StorePath: sessionPath,
-	})
-	if err != nil {
-		return err
+	if a.wa == nil {
+		sessionPath := filepath.Join(a.opts.StoreDir, "session.db")
+		cli, err := wa.New(wa.Options{StorePath: sessionPath})
+		if err != nil {
+			return err
+		}
+		a.wa = cli
 	}
-
-	a.wa = cli
+	if a.sessionState == nil {
+		state := newSessionObservation(a.opts.StoreDir)
+		a.sessionState = state
+		a.sessionHandler = a.wa.AddEventHandler(func(evt any) { a.observeSessionState(state, evt) })
+		a.connectGate = make(chan struct{}, 1)
+		a.connectGate <- struct{}{}
+	}
 	return nil
 }
 
@@ -180,9 +189,13 @@ func (a *App) Close() {
 	a.waMu.Lock()
 	waClient := a.wa
 	sessionResolver := a.sessionResolver
+	sessionState, sessionHandler := a.sessionState, a.sessionHandler
 	a.waMu.Unlock()
 	if waClient != nil {
 		waClient.Close()
+		if sessionState != nil {
+			waClient.RemoveEventHandler(sessionHandler)
+		}
 	}
 	// A completed command frontier may hand later ready tasks to a background
 	// drainer. Keep SQLite open until that drainer has finished every write.
@@ -254,11 +267,29 @@ func (a *App) AllowUnauthed() bool { return a.opts.AllowUnauthed }
 func (a *App) ReadOnly() bool      { return a.opts.ReadOnly }
 
 func (a *App) Connect(ctx context.Context, allowQR bool, qrWriter func(string)) error {
+	if a.opts.ReadOnly {
+		return fmt.Errorf("read-only mode: command would connect to WhatsApp")
+	}
 	if err := a.OpenWA(); err != nil {
 		return err
 	}
-	return a.wa.Connect(ctx, wa.ConnectOptions{
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-a.connectGate:
+	}
+	defer func() { a.connectGate <- struct{}{} }()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := a.sessionState.prepareConnect(a.wa.IsConnected); err != nil {
+		return err
+	}
+	if err := a.wa.Connect(ctx, wa.ConnectOptions{
 		AllowQR:  allowQR,
 		OnQRCode: qrWriter,
-	})
+	}); err != nil {
+		return err
+	}
+	return a.sessionState.waitForLogin(ctx)
 }

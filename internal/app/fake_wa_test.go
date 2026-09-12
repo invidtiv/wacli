@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -143,9 +144,14 @@ func newFakeWA() *fakeWA {
 
 func (f *fakeWA) emit(evt any) {
 	f.mu.Lock()
-	handlers := make([]func(any), 0, len(f.handlers))
-	for _, h := range f.handlers {
-		handlers = append(handlers, h)
+	ids := make([]uint32, 0, len(f.handlers))
+	for id := range f.handlers {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	handlers := make([]func(any), 0, len(ids))
+	for _, id := range ids {
+		handlers = append(handlers, f.handlers[id])
 	}
 	f.mu.Unlock()
 	for _, h := range handlers {

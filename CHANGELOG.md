@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Auth: retain observed session revocation in auth/doctor diagnostics until confirmed login, and wait for login confirmation before reporting a successful diagnostic connection. (#389 - thanks @0xble)
+
 - Builds: update pnpm to 12.4.1, share production/test dead-code checks between local and CI gates, validate documentation links in CI, and isolate concurrent Windows lock cross-builds.
 
 ## 0.18.2 - 2026-09-11

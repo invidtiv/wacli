@@ -229,6 +229,11 @@ func newAuthStatusCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			authed := a.WA().IsAuthed()
+			revoked, err := appPkg.SessionRevoked(a.StoreDir())
+			if err != nil {
+				return err
+			}
+			authed = authed && !revoked
 			var linkedJID string
 			if authed {
 				linkedJID = a.WA().LinkedJID()
