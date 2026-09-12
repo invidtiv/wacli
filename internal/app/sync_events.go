@@ -501,6 +501,11 @@ func (a *App) handleLiveSyncMessage(ctx context.Context, opts SyncOptions, v *ev
 	if historySyncNotificationFromMessage(v) != nil {
 		return
 	}
+	var ok bool
+	v, ok = a.decryptSecretEdit(ctx, v)
+	if !ok {
+		return
+	}
 	pm := wa.ParseLiveMessage(v)
 	if pm.ReactionToID != "" && pm.ReactionEmoji == "" && v.Message != nil && v.Message.GetEncReactionMessage() != nil {
 		a.decryptEncryptedReaction(ctx, &pm, v)
@@ -619,6 +624,23 @@ func (a *App) handleHistorySync(ctx context.Context, opts SyncOptions, v *events
 			pm := wa.ParseHistoryMessage(chatID, m.Message)
 			if pm.ID == "" || pm.Chat.IsEmpty() {
 				continue
+			}
+			unwrapped := (&events.Message{RawMessage: m.Message.GetMessage()}).UnwrapRaw()
+			if isSecretEdit(unwrapped.Message) {
+				evt, err := a.wa.ParseWebMessage(pm.Chat, m.Message)
+				if err != nil {
+					a.emitWarning(
+						"encrypted_edit_parse_failed",
+						fmt.Sprintf("warning: failed to parse encrypted edit %s: %v", pm.ID, err),
+						map[string]any{"message_id": pm.ID, "error": err.Error()},
+					)
+					continue
+				}
+				evt, ok := a.decryptSecretEdit(ctx, evt)
+				if !ok {
+					continue
+				}
+				pm = wa.ParseLiveMessage(evt)
 			}
 			var pollEvt *events.Message
 			if normalized, evt, ok := a.normalizeHistoryPollMessage(pm, m.Message); ok {
