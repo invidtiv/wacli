@@ -459,7 +459,7 @@ func emitWebhookEvents(t *testing.T, webhookEvents string, emit func(f *fakeWA))
 	t.Cleanup(stopWebhook)
 
 	var messagesStored, lastEvent atomic.Int64
-	handlerID := a.addSyncEventHandler(
+	handlerID, _ := a.addSyncEventHandler(
 		ctx,
 		opts,
 		&messagesStored,

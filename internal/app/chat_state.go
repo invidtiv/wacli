@@ -142,13 +142,25 @@ func (a *App) MarkChatRead(ctx context.Context, jid types.JID, read bool) error 
 	})
 }
 
-func (a *App) beginChatStateWrite(ctx context.Context, collection appstate.WAPatchName) (func(), error) {
+func (a *App) acquireChatStateSync(ctx context.Context) (func(), error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("wait for chat state synchronization: %w", ctx.Err())
 	case <-a.chatStateSync:
 	}
 	release := func() { a.chatStateSync <- struct{}{} }
+	if err := ctx.Err(); err != nil {
+		release()
+		return nil, fmt.Errorf("wait for chat state synchronization: %w", err)
+	}
+	return release, nil
+}
+
+func (a *App) beginChatStateWrite(ctx context.Context, collection appstate.WAPatchName) (func(), error) {
+	release, err := a.acquireChatStateSync(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := a.syncChatStateBeforeWrite(ctx, collection); err != nil {
 		release()
 		return nil, err
@@ -198,7 +210,7 @@ func (a *App) replayRequiredAppState(ctx context.Context, collection appstate.WA
 			return a.clearCompletedAppStateRecovery(collection, markerGeneration)
 		}
 		if errors.Is(fetchErr, appstate.ErrMismatchingLTHash) {
-			return a.recoverMismatchingAppState(ctx, collection, markerGeneration, tracker)
+			return a.recoverMismatchingAppState(ctx, collection, markerGeneration, tracker, nil)
 		}
 		if !errors.Is(fetchErr, appstate.ErrKeyNotFound) {
 			return fmt.Errorf("replay WhatsApp app state recovery for %s: %w", collection, fetchErr)
@@ -223,9 +235,9 @@ func (a *App) replayRequiredAppState(ctx context.Context, collection appstate.WA
 	}
 }
 
-func (a *App) recoverMismatchingAppState(ctx context.Context, collection appstate.WAPatchName, markerGeneration int64, tracker *appStatePersistenceTracker) error {
+func (a *App) recoverMismatchingAppState(ctx context.Context, collection appstate.WAPatchName, markerGeneration int64, tracker *appStatePersistenceTracker, onRequested func(types.MessageID)) error {
 	ticket := a.appStatePersist.reserve()
-	eventsToPersist, recoveryErr := a.waitForPrimaryAppStateRecovery(ctx, collection)
+	eventsToPersist, recoveryErr := a.waitForPrimaryAppStateRecovery(ctx, collection, onRequested)
 	persistCtx := context.WithoutCancel(ctx)
 	result := make(chan error, 1)
 	frontier := a.appStatePersist.complete(ticket, func() {
@@ -247,7 +259,7 @@ func (a *App) recoverMismatchingAppState(ctx context.Context, collection appstat
 	return a.clearCompletedAppStateRecovery(collection, markerGeneration)
 }
 
-func (a *App) waitForPrimaryAppStateRecovery(ctx context.Context, collection appstate.WAPatchName) ([]any, error) {
+func (a *App) waitForPrimaryAppStateRecovery(ctx context.Context, collection appstate.WAPatchName, onRequested func(types.MessageID)) ([]any, error) {
 	completed := make(chan []any, 1)
 	var mu sync.Mutex
 	var captured []any
@@ -273,11 +285,15 @@ func (a *App) waitForPrimaryAppStateRecovery(ctx context.Context, collection app
 	})
 	defer a.wa.RemoveEventHandler(handlerID)
 
-	if _, err := a.wa.RequestAppStateRecovery(ctx, string(collection)); err != nil {
+	requestID, err := a.wa.RequestAppStateRecovery(ctx, string(collection))
+	if err != nil {
 		mu.Lock()
 		finished = true
 		mu.Unlock()
 		return nil, fmt.Errorf("request WhatsApp app state recovery for %s: %w", collection, err)
+	}
+	if onRequested != nil {
+		onRequested(requestID)
 	}
 	select {
 	case eventsToPersist := <-completed:

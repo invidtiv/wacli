@@ -113,21 +113,24 @@ type Options struct {
 }
 
 type App struct {
-	opts            Options
-	waMu            sync.Mutex
-	wa              WAClient
-	sessionState    *sessionObservation
-	sessionHandler  uint32
-	connectGate     chan struct{}
-	sessionResolver *readOnlySessionResolver
-	db              *store.DB
-	statusMu        sync.Mutex
-	status          *syncStatus
-	chatStateSync   chan struct{}
-	appStatePersist appStatePersistenceSequencer
-	manualFetchMu   sync.Mutex
-	manualFetches   map[string]int
-	heartbeatLast   atomic.Int64
+	opts                    Options
+	waMu                    sync.Mutex
+	wa                      WAClient
+	sessionState            *sessionObservation
+	sessionHandler          uint32
+	connectGate             chan struct{}
+	sessionResolver         *readOnlySessionResolver
+	db                      *store.DB
+	statusMu                sync.Mutex
+	status                  *syncStatus
+	chatStateSync           chan struct{}
+	appStatePersist         appStatePersistenceSequencer
+	appStateRecoveryWorkers sync.WaitGroup
+	appStateRecoveryMu      sync.Mutex
+	appStateRecoveryClosing bool
+	manualFetchMu           sync.Mutex
+	manualFetches           map[string]int
+	heartbeatLast           atomic.Int64
 }
 
 func New(opts Options) (*App, error) {
@@ -186,6 +189,9 @@ func (a *App) OpenWA() error {
 }
 
 func (a *App) Close() {
+	a.appStateRecoveryMu.Lock()
+	a.appStateRecoveryClosing = true
+	a.appStateRecoveryMu.Unlock()
 	a.waMu.Lock()
 	waClient := a.wa
 	sessionResolver := a.sessionResolver
@@ -199,6 +205,7 @@ func (a *App) Close() {
 	}
 	// A completed command frontier may hand later ready tasks to a background
 	// drainer. Keep SQLite open until that drainer has finished every write.
+	a.appStateRecoveryWorkers.Wait()
 	_ = a.appStatePersist.waitIdle(context.Background())
 	if sessionResolver != nil {
 		_ = sessionResolver.Close()

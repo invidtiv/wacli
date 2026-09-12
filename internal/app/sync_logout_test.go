@@ -56,7 +56,7 @@ func TestSyncEventHandlerEmitsLoggedOutAndSignals(t *testing.T) {
 
 			var messagesStored, lastEvent atomic.Int64
 			loggedOut := make(chan struct{}, 1)
-			handlerID := a.addSyncEventHandler(
+			handlerID, _ := a.addSyncEventHandler(
 				context.Background(),
 				SyncOptions{Mode: SyncModeFollow},
 				&messagesStored,
@@ -119,7 +119,7 @@ func TestSyncLoggedOutHumanOutputIncludesRecoveryHint(t *testing.T) {
 
 	var messagesStored, lastEvent atomic.Int64
 	loggedOut := make(chan struct{}, 1)
-	handlerID := a.addSyncEventHandler(
+	handlerID, _ := a.addSyncEventHandler(
 		context.Background(),
 		SyncOptions{Mode: SyncModeFollow},
 		&messagesStored,

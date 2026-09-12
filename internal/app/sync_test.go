@@ -558,53 +558,6 @@ func TestAppStateCallLogDeleteRemovesStoredCallEvent(t *testing.T) {
 	}
 }
 
-func TestAppStateLTHashMismatchRequestsRecoveryOnce(t *testing.T) {
-	a := newTestApp(t)
-	f := newFakeWA()
-	a.wa = f
-
-	var recoveries sync.Map
-	err := fmt.Errorf("failed to verify patch v5848: %w", appstate.ErrMismatchingLTHash)
-	a.handleAppStateSyncError(context.Background(), &events.AppStateSyncError{
-		Name:  appstate.WAPatchRegularLow,
-		Error: err,
-	}, &recoveries)
-	a.handleAppStateSyncError(context.Background(), &events.AppStateSyncError{
-		Name:  appstate.WAPatchRegularLow,
-		Error: err,
-	}, &recoveries)
-
-	waitForCondition(t, time.Second, func() bool {
-		f.mu.Lock()
-		defer f.mu.Unlock()
-		return len(f.appStateRecoveries) == 1
-	})
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if got := f.appStateRecoveries[0]; got != string(appstate.WAPatchRegularLow) {
-		t.Fatalf("recovery collection = %q", got)
-	}
-}
-
-func TestAppStateNonLTHashErrorDoesNotRequestRecovery(t *testing.T) {
-	a := newTestApp(t)
-	f := newFakeWA()
-	a.wa = f
-
-	var recoveries sync.Map
-	a.handleAppStateSyncError(context.Background(), &events.AppStateSyncError{
-		Name:  appstate.WAPatchRegularLow,
-		Error: errors.New("mismatching patch MAC"),
-	}, &recoveries)
-
-	time.Sleep(20 * time.Millisecond)
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if len(f.appStateRecoveries) != 0 {
-		t.Fatalf("recovery requests = %v, want none", f.appStateRecoveries)
-	}
-}
-
 func TestStarEventStoresAndClearsStarredState(t *testing.T) {
 	a := newTestApp(t)
 	f := newFakeWA()
